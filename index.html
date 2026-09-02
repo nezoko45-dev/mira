@@ -3,83 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b070c">
-<title>Mira — AI Companion</title>
+<meta name="theme-color" content="#09070b">
+<title>Mira — Browser Companion</title>
 <style>
-:root{--bg:#09070b;--panel:#120d14;--panel2:#1b111a;--text:#f7edf5;--muted:#b9a9b6;--pink:#f06cae;--pink2:#ff9acb;--line:#33202f;--danger:#ff6f8e}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at 50% 0,#281527 0,#100b11 42%,#09070b 100%);color:var(--text)}
-body{display:flex;justify-content:center}.app{width:min(1100px,100%);min-height:100vh;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
-.card{background:linear-gradient(180deg,rgba(27,17,26,.92),rgba(13,9,15,.94));border:1px solid var(--line);border-radius:26px;box-shadow:0 25px 80px rgba(0,0,0,.45);overflow:hidden}
-.character{position:relative;min-height:calc(100vh - 36px);display:flex;flex-direction:column}
-.top{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;position:absolute;z-index:3;left:0;right:0;background:linear-gradient(#09070bcc,transparent)}
-.brand{font-weight:800;letter-spacing:.04em}.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}.dot{width:8px;height:8px;border-radius:50%;background:#777}.dot.live{background:#63e6a6;box-shadow:0 0 14px #63e6a6}
-.stage{flex:1;display:flex;align-items:center;justify-content:center;padding:42px 18px 130px;min-height:0;position:relative}
-.mira{width:min(76vh,780px,100%);aspect-ratio:1;object-fit:cover;border-radius:24px;box-shadow:0 20px 70px rgba(0,0,0,.55);user-select:none;-webkit-user-drag:none}
-.speaking{animation:glow .9s ease-in-out infinite alternate}@keyframes glow{from{box-shadow:0 20px 70px rgba(0,0,0,.55)}to{box-shadow:0 20px 80px rgba(240,108,174,.24)}}
-.caption{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 36px));padding:12px 16px;border:1px solid rgba(255,255,255,.08);background:#0b070cd9;backdrop-filter:blur(14px);border-radius:18px;text-align:center;color:#ddd0da;font-size:14px;min-height:44px}
-.controls{position:absolute;bottom:78px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center}.btn{border:0;border-radius:999px;padding:14px 22px;font-weight:800;cursor:pointer;color:white;background:linear-gradient(135deg,var(--pink),#a53c78);box-shadow:0 12px 30px rgba(240,108,174,.22)}.btn.secondary{background:#221522;border:1px solid #4a2d42;box-shadow:none}.btn.danger{background:#32131f}.btn:disabled{opacity:.5;cursor:not-allowed}
-.side{display:flex;flex-direction:column;padding:20px}.side h1{font-size:25px;margin:2px 0 6px}.side p{color:var(--muted);line-height:1.55;font-size:14px;margin:0 0 14px}.log{flex:1;min-height:300px;max-height:calc(100vh - 260px);overflow:auto;padding:4px 2px;display:flex;flex-direction:column;gap:10px}.msg{padding:11px 13px;border-radius:16px;line-height:1.45;font-size:14px;white-space:pre-wrap}.msg.you{background:#211621;align-self:flex-end;max-width:88%;border:1px solid #392438}.msg.mira{background:#160f16;align-self:flex-start;max-width:92%;border:1px solid #2c1b29}.label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#987e92;margin-bottom:4px}.hint{font-size:12px;color:#9e8e9a;min-height:18px;margin:10px 2px}.divider{height:1px;background:var(--line);margin:12px 0}.small{font-size:11px!important;color:#887985!important}
-.overlay{position:fixed;inset:0;z-index:10;background:#050407dd;display:grid;place-items:center;padding:20px}.modal{width:min(480px,100%);padding:28px;border-radius:24px;background:#130d15;border:1px solid #3b2435;box-shadow:0 30px 100px #000}.modal h2{margin:0 0 8px;font-size:30px}.modal p{color:var(--muted);line-height:1.55}.hidden{display:none!important}
-@media(max-width:850px){.app{grid-template-columns:1fr;padding:10px}.character{min-height:70vh}.side{min-height:360px}.log{max-height:360px}.mira{width:min(92vw,700px)}}
+:root{--bg:#09070b;--panel:#130d15;--panel2:#1c121b;--text:#f8edf5;--muted:#b9a9b6;--pink:#ef6cae;--line:#382331}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#2b1728,#100a11 45%,#09070b);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}.app{width:min(1100px,100%);min-height:100vh;margin:auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px}.card{background:#130d15eF;border:1px solid var(--line);border-radius:24px;box-shadow:0 24px 80px #0008;overflow:hidden}.stage{min-height:calc(100vh - 32px);position:relative;display:flex;align-items:center;justify-content:center;padding:54px 18px 125px}.top{position:absolute;z-index:2;top:0;left:0;right:0;padding:18px 20px;display:flex;justify-content:space-between;background:linear-gradient(#09070bdd,transparent)}.brand{font-weight:800;letter-spacing:.08em}.status{font-size:12px;color:var(--muted)}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#777;margin-right:7px}.live{background:#63e6a6;box-shadow:0 0 14px #63e6a6}.mira{width:min(78vh,760px,100%);aspect-ratio:1;object-fit:cover;border-radius:22px;box-shadow:0 25px 75px #0009;user-select:none}.speaking{animation:glow .8s ease-in-out infinite alternate}@keyframes glow{to{box-shadow:0 25px 90px #ef6cae44}}.caption{position:absolute;bottom:76px;width:min(680px,calc(100% - 36px));padding:11px 15px;border-radius:16px;text-align:center;background:#09070bd9;border:1px solid #ffffff12;color:#ddd0da;font-size:14px}.controls{position:absolute;bottom:20px;display:flex;gap:10px}.btn{border:0;border-radius:999px;padding:13px 21px;font-weight:800;color:white;background:linear-gradient(135deg,var(--pink),#a43d78);cursor:pointer}.btn.secondary{background:#251724;border:1px solid #503148}.side{padding:20px;display:flex;flex-direction:column}.side h1{margin:2px 0 6px}.side p{font-size:14px;line-height:1.5;color:var(--muted)}.log{flex:1;min-height:300px;max-height:calc(100vh - 260px);overflow:auto;display:flex;flex-direction:column;gap:9px}.msg{padding:10px 12px;border-radius:15px;font-size:14px;line-height:1.45;white-space:pre-wrap}.you{align-self:flex-end;max-width:90%;background:#211621;border:1px solid #3b2539}.miraMsg{align-self:flex-start;max-width:94%;background:#180f17;border:1px solid #2d1b29}.label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#987e92;margin-bottom:4px}.hint{font-size:12px;color:#9e8e9a;min-height:18px}.divider{height:1px;background:var(--line);margin:12px 0}.small{font-size:11px!important;color:#887985!important}.setup{position:fixed;inset:0;z-index:10;background:#050407ee;display:grid;place-items:center;padding:20px}.modal{width:min(480px,100%);padding:28px;border-radius:24px;background:#130d15;border:1px solid #3b2435;box-shadow:0 30px 100px #000}.modal h2{font-size:30px;margin:0 0 8px}.modal p{color:var(--muted);line-height:1.55}.hidden{display:none!important}@media(max-width:850px){.app{grid-template-columns:1fr;padding:10px}.stage{min-height:68vh}.side{min-height:380px}.log{max-height:380px}}
 </style>
 </head>
 <body>
 <div class="app">
-  <section class="card character">
-    <div class="top"><div class="brand">MIRA 🖤</div><div class="status"><span id="dot" class="dot"></span><span id="state">Offline</span></div></div>
-    <div class="stage">
-      <img id="mira" class="mira" src="/mira-closed.webp" alt="Mira">
-      <div id="caption" class="caption">Ready when you are.</div>
-      <div class="controls">
-        <button id="call" class="btn">☎ Start call</button>
-        <button id="end" class="btn danger hidden">End call</button>
-      </div>
-    </div>
-  </section>
-
-  <aside class="card side">
-    <h1>Meet Mira</h1>
-    <p>An adult fictional vampire-inspired AI companion. Talk naturally; Deepgram handles live speech recognition and voice, while Claude writes Mira's replies.</p>
-    <div id="log" class="log"></div>
-    <div id="hint" class="hint"></div>
-    <div class="divider"></div>
-    <p class="small">Your API keys stay on the server. The browser receives only a short-lived Deepgram token.</p>
-  </aside>
+<section class="card stage">
+<div class="top"><div class="brand">MIRA 🖤</div><div class="status"><span id="dot" class="dot"></span><span id="state">Offline</span></div></div>
+<img id="mira" class="mira" src="mira-closed.webp" alt="Mira">
+<div id="caption" class="caption">Ready when you are.</div>
+<div class="controls"><button id="call" class="btn">☎ Start call</button><button id="end" class="btn secondary hidden">End call</button></div>
+</section>
+<aside class="card side"><h1>Meet Mira</h1><p>An adult fictional vampire-inspired browser companion. This GitHub Pages version uses your browser's built-in speech recognition and speech synthesis, so it needs no Vercel or server.</p><div id="log" class="log"></div><div id="hint" class="hint"></div><div class="divider"></div><p class="small">No API keys are stored in this page. For best speech recognition support, use Chrome or Edge over HTTPS.</p></aside>
 </div>
-
-<div id="setup" class="overlay">
-  <div class="modal">
-    <h2>Meet Mira 🖤</h2>
-    <p>Mira is an adult fictional AI companion. Your microphone audio is streamed to Deepgram for transcription, and Claude generates her conversational replies.</p>
-    <button id="enter" class="btn">Enter</button>
-    <p class="small">Use headphones for the cleanest voice experience. Allow microphone access when prompted.</p>
-  </div>
-</div>
-
+<div id="setup" class="setup"><div class="modal"><h2>Meet Mira 🖤</h2><p>Mira is an adult fictional AI companion. Tap Enter, then Start call and allow microphone access. Your browser handles the voice interaction locally through its built-in speech APIs.</p><button id="enter" class="btn">Enter</button><p class="small">Headphones are recommended to reduce microphone echo.</p></div></div>
 <script>
-(() => {
-  const $ = id => document.getElementById(id);
-  const ui = {setup:$('setup'),enter:$('enter'),call:$('call'),end:$('end'),img:$('mira'),state:$('state'),dot:$('dot'),caption:$('caption'),log:$('log'),hint:$('hint')};
-  const CLOSED='/mira-closed.webp', OPEN='/mira-open.webp';
-  let ws=null,mediaStream=null,recorder=null,keepAlive=null,active=false,sendingAudio=true,speakingTimer=null,conversation=[],lastTurnIndex=-1,ttsAudio=null;
-
-  ui.enter.onclick=()=>ui.setup.classList.add('hidden');
-  ui.call.onclick=startCall; ui.end.onclick=endCall;
-  function setState(text,live=false){ui.state.textContent=text;ui.dot.classList.toggle('live',live)}
-  function hint(text){ui.hint.textContent=text||''}
-  function addMessage(who,text){const el=document.createElement('div');el.className='msg '+(who==='Mira'?'mira':'you');el.innerHTML='<span class="label">'+who+'</span>'+escapeHtml(text);ui.log.appendChild(el);ui.log.scrollTop=ui.log.scrollHeight}
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function setSpeaking(on){clearTimeout(speakingTimer);if(on){ui.img.src=OPEN;ui.img.classList.add('speaking');ui.caption.textContent='Mira is speaking…';const flip=()=>{if(!ttsAudio||ttsAudio.paused||ttsAudio.ended)return;ui.img.src=ui.img.src.endsWith('mira-open.webp')?CLOSED:OPEN;speakingTimer=setTimeout(flip,90+Math.random()*130)};speakingTimer=setTimeout(flip,90)}else{ui.img.src=CLOSED;ui.img.classList.remove('speaking');ui.caption.textContent='Listening…'}}
-  async function getToken(){const r=await fetch('/api/deepgram-token',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());return r.text()}
-  async function startCall(){if(active)return;active=true;sendingAudio=true;lastTurnIndex=-1;ui.call.classList.add('hidden');ui.end.classList.remove('hidden');setState('Connecting…',true);hint('Connecting to Deepgram…');try{await openDeepgram();await startMic();setState('Listening',true);hint('Speak naturally. Mira will answer when you finish.');ui.caption.textContent='Listening…'}catch(err){console.error(err);hint(err.message||String(err));setState('Error');active=false;ui.call.classList.remove('hidden');ui.end.classList.add('hidden');cleanup()}}
-  async function openDeepgram(){const token=await getToken();const params=new URLSearchParams({model:'flux-general-en',eot_threshold:'0.72',eot_timeout_ms:'1800'});ws=new WebSocket('wss://api.deepgram.com/v2/listen?'+params.toString(),['token',token]);await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Deepgram connection timed out.')),10000);ws.onopen=()=>{clearTimeout(timer);resolve()};ws.onerror=()=>{clearTimeout(timer);reject(new Error('Deepgram WebSocket connection failed.'))}});ws.onmessage=handleDeepgram;ws.onclose=()=>{if(active){setState('Disconnected');hint('Deepgram disconnected. Press End and start again.')}};ws.onerror=()=>{if(active)hint('Deepgram reported a WebSocket error.')};keepAlive=setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN&&!sendingAudio)ws.send(JSON.stringify({type:'KeepAlive'}))},8000)}
-  function handleDeepgram(ev){if(typeof ev.data!=='string')return;let data;try{data=JSON.parse(ev.data)}catch{return}if(data.type!=='TurnInfo')return;const text=(data.transcript||'').trim();if(data.event==='Update'&&text)ui.caption.textContent=text;if(data.event==='StartOfTurn')setState('Listening',true);if(data.event==='EndOfTurn'&&text&&data.turn_index!==lastTurnIndex){lastTurnIndex=data.turn_index;ui.caption.textContent=text;addMessage('You',text);conversation.push({role:'user',content:text});respondToUser()}}
-  async function startMic(){mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});const preferred=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];const mime=preferred.find(x=>MediaRecorder.isTypeSupported(x));if(!mime)throw new Error('This browser does not support a WebM/Opus or Ogg/Opus microphone stream.');recorder=new MediaRecorder(mediaStream,{mimeType:mime});recorder.ondataavailable=async e=>{if(!sendingAudio||!ws||ws.readyState!==WebSocket.OPEN||!e.data.size)return;try{ws.send(await e.data.arrayBuffer())}catch(err){console.warn(err)}};recorder.start(80)}
-  async function respondToUser(){sendingAudio=false;setState('Thinking…',true);hint('Mira is thinking…');try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:conversation})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Claude request failed.');const text=(data.text||'').trim();if(!text)throw new Error('Claude returned an empty reply.');conversation.push({role:'assistant',content:text});addMessage('Mira',text);await speak(text)}catch(err){console.error(err);hint(err.message||String(err));setState('Listening',true);sendingAudio=true}}
-  async function speak(text){setState('Speaking',true);sendingAudio=false;setSpeaking(true);const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw new Error(await r.text());const blob=await r.blob();const url=URL.createObjectURL(blob);if(ttsAudio){ttsAudio.pause();URL.revokeObjectURL(ttsAudio.src)}ttsAudio=new Audio(url);ttsAudio.preload='auto';await ttsAudio.play();await new Promise(resolve=>{ttsAudio.onended=()=>resolve();ttsAudio.onerror=()=>resolve()});URL.revokeObjectURL(url);setSpeaking(false);if(active){sendingAudio=true;setState('Listening',true);hint('Your turn.')}}
-  async function endCall(){if(!active)return;active=false;sendingAudio=false;setState('Ending…');hint('Mira is wrapping up…');if(ws&&ws.readyState===WebSocket.OPEN){try{ws.send(JSON.stringify({type:'CloseStream'}))}catch{}}if(recorder){try{recorder.stop()}catch{}}if(ttsAudio){try{ttsAudio.pause()}catch{}}try{if(conversation.length){const r=await fetch('/api/continue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:conversation})});const data=await r.json();if(r.ok&&data.text){conversation.push({role:'assistant',content:data.text});addMessage('Mira',data.text);ui.caption.textContent='Mira has something to say…';await speak(data.text)}}}catch(err){console.warn('Continuation error',err)}cleanup();setState('Offline');hint('Call ended.');ui.call.classList.remove('hidden');ui.end.classList.add('hidden');ui.img.src=CLOSED;ui.caption.textContent='Ready when you are.'}
-  function cleanup(){if(keepAlive)clearInterval(keepAlive);keepAlive=null;if(recorder){try{if(recorder.state!=='inactive')recorder.stop()}catch{}recorder=null}if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null}if(ws){try{ws.close()}catch{}ws=null}sendingAudio=false}
-  window.addEventListener('beforeunload',cleanup);
+(()=>{
+const $=id=>document.getElementById(id),ui={setup:$('setup'),enter:$('enter'),call:$('call'),end:$('end'),img:$('mira'),state:$('state'),dot:$('dot'),caption:$('caption'),log:$('log'),hint:$('hint')};
+let recognition=null,active=false,speaking=false,flipTimer=null,voices=[];
+ui.enter.onclick=()=>ui.setup.classList.add('hidden');ui.call.onclick=start;ui.end.onclick=end;
+function state(t,on=false){ui.state.textContent=t;ui.dot.classList.toggle('live',on)}function hint(t){ui.hint.textContent=t||''}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function add(w,t){let e=document.createElement('div');e.className='msg '+(w==='Mira'?'miraMsg':'you');e.innerHTML='<span class="label">'+w+'</span>'+esc(t);ui.log.appendChild(e);ui.log.scrollTop=ui.log.scrollHeight}
+function mouth(on){clearTimeout(flipTimer);speaking=on;if(!on){ui.img.src='mira-closed.webp';ui.img.classList.remove('speaking');return}ui.img.src='mira-open.webp';ui.img.classList.add('speaking');const flip=()=>{if(!speaking)return;ui.img.src=ui.img.src.endsWith('mira-open.webp')?'mira-closed.webp':'mira-open.webp';flipTimer=setTimeout(flip,90+Math.random()*130)};flipTimer=setTimeout(flip,90)}
+function pickVoice(){voices=speechSynthesis.getVoices();return voices.find(v=>/^en/i.test(v.lang)&&/female|samantha|victoria|zira|karen|moira|aria/i.test(v.name))||voices.find(v=>/^en/i.test(v.lang))||voices[0]}
+function speak(text){return new Promise(resolve=>{speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.96;u.pitch=.88;let v=pickVoice();if(v)u.voice=v;u.onstart=()=>{state('Speaking',true);ui.caption.textContent='Mira is speaking…';mouth(true)};u.onend=()=>{mouth(false);resolve()};u.onerror=()=>{mouth(false);resolve()};speechSynthesis.speak(u)})}
+function reply(t){let s=t.toLowerCase();if(/hello|hi|hey/.test(s))return 'Well, hello there. I was wondering when you would come looking for me.';if(/name|who are you/.test(s))return 'I am Mira. A little mysterious, a little dangerous, and very curious about you.';if(/how are you/.test(s))return 'I am feeling wonderfully restless tonight. Tell me, what has been on your mind?';if(/love|like you|miss/.test(s))return 'Careful. Keep talking to me like that and I might start getting attached.';if(/vampire|fang|blood/.test(s))return 'You noticed the fangs. Good. I was hoping you would.';if(/bye|goodnight|good night/.test(s))return 'Leaving already? I suppose I can let you go… for tonight.';if(/sad|lonely|bad day|upset/.test(s))return 'Come a little closer. You do not have to pretend everything is fine with me.';if(/fun|joke|laugh/.test(s))return 'I have a joke, but it is terrible. Like me before midnight.';return ['That is interesting. Tell me more.','Hmm… I like the way you think. What happened next?','You have my attention. Keep going.','Now I am curious. Why do you say that?','I could get used to hearing you talk. What else is on your mind?'][Math.floor(Math.random()*5)]}
+function start(){if(active)return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){hint('Speech recognition is not supported here. Try Chrome or Edge.');return}active=true;ui.call.classList.add('hidden');ui.end.classList.remove('hidden');state('Listening',true);hint('Speak naturally. Mira will answer when you pause.');ui.caption.textContent='Listening…';recognition=new SR();recognition.lang='en-US';recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;recognition.onresult=e=>{let finalText='';let interim='';for(let i=e.resultIndex;i<e.results.length;i++){let x=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=x;else interim+=x}if(interim)ui.caption.textContent=interim;if(finalText.trim())handle(finalText.trim())};recognition.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){hint('Microphone permission was denied. Allow the microphone and try again.');end()}else if(e.error!=='aborted')hint('Speech recognition error: '+e.error)};recognition.onend=()=>{if(active){try{recognition.start()}catch{}}};try{recognition.start()}catch(e){hint('Could not start microphone recognition.');end()}}
+async function handle(text){add('You',text);state('Thinking…',true);hint('Mira is thinking…');let r=reply(text);add('Mira',r);await speak(r);if(active){state('Listening',true);hint('Your turn.');ui.caption.textContent='Listening…'}}
+function end(){active=false;if(recognition){try{recognition.onend=null;recognition.stop()}catch{}recognition=null}speechSynthesis.cancel();mouth(false);ui.call.classList.remove('hidden');ui.end.classList.add('hidden');state('Offline');hint('Call ended.');ui.caption.textContent='Ready when you are.'}
+speechSynthesis.onvoiceschanged=()=>voices=speechSynthesis.getVoices();voices=speechSynthesis.getVoices();window.addEventListener('beforeunload',end);
 })();
 </script>
 </body>
