@@ -15,8 +15,8 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const key = typeof body?.apiKey === 'string' && body.apiKey.trim()
       ? body.apiKey.trim()
-      : process.env.ANTHROPIC_API_KEY;
-    if (!key) return res.status(400).json({ error: 'Anthropic API key is not configured. Open Settings → API Keys and enter your key.' });
+      : process.env.MISTRAL_API_KEY;
+    if (!key) return res.status(400).json({ error: 'Mistral API key is not configured. Open Settings → API Keys and enter your key.' });
 
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     const safeMessages = messages
@@ -25,19 +25,24 @@ export default async function handler(req, res) {
       .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
     if (!safeMessages.length) return res.status(400).json({ error: 'No conversation messages supplied.' });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 180, system: SYSTEM, messages: safeMessages })
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        max_tokens: 180,
+        temperature: 0.8,
+        messages: [{ role: 'system', content: SYSTEM }, ...safeMessages]
+      })
     });
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'Claude request failed.' });
-    const text = Array.isArray(data.content)
-      ? data.content.filter(x => x.type === 'text').map(x => x.text).join(' ').trim()
+    if (!response.ok) return res.status(response.status).json({ error: data?.message || data?.error?.message || 'Mistral request failed.' });
+    const text = typeof data?.choices?.[0]?.message?.content === 'string'
+      ? data.choices[0].message.content.trim()
       : '';
     return res.status(200).json({ text });
   } catch (error) {
-    console.error('Continuation request failed:', error?.message || error);
-    return res.status(500).json({ error: 'Continuation request failed.' });
+    console.error('Mistral continuation request failed:', error?.message || error);
+    return res.status(500).json({ error: 'Mistral continuation request failed.' });
   }
 }
