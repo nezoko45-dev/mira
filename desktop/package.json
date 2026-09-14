@@ -18,7 +18,9 @@
     "directories": { "output": "dist" },
     "files": ["**/*", "!dist/**"],
     "extraResources": [
-      { "from": "../openvoice", "to": "openvoice", "filter": ["**/*"] }
+      { "from": "../openvoice", "to": "openvoice", "filter": ["**/*"] },
+      { "from": "../luna mouth open.png", "to": "luna mouth open.png" },
+      { "from": "../luna mouth closed.png", "to": "luna mouth closed.png" }
     ],
     "win": { "target": "nsis", "artifactName": "Luna-Gothic-Companion-${version}-Setup.exe" },
     "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true }
