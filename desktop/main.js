@@ -1,17 +1,19 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
 
 let win;
 let voiceProcess;
 
 function startVoiceBackend() {
-  const exe = process.platform === 'win32' ? 'openvoice-server.exe' : 'openvoice-server';
-  const bundled = path.join(process.resourcesPath, 'openvoice', exe);
-  const dev = path.join(__dirname, '..', 'openvoice', exe);
-  const target = require('fs').existsSync(bundled) ? bundled : dev;
-  if (!require('fs').existsSync(target)) return;
-  voiceProcess = spawn(target, [], { windowsHide: true, stdio: 'ignore' });
+  const base = path.join(process.resourcesPath, 'openvoice');
+  const candidates = process.platform === 'win32'
+    ? [path.join(base, 'openvoice-server', 'openvoice-server.exe'), path.join(base, 'openvoice-server.exe')]
+    : [path.join(base, 'openvoice-server', 'openvoice-server'), path.join(base, 'openvoice-server')];
+  const target = candidates.find(fs.existsSync);
+  if (!target) return;
+  voiceProcess = spawn(target, [], { windowsHide: true, cwd: path.dirname(target), stdio: 'ignore' });
   voiceProcess.on('exit', () => { voiceProcess = null; });
 }
 
