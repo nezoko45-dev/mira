@@ -8,7 +8,7 @@ const assets = {
 function fixLunaImage(img) {
   if (!img || !img.src) return;
   const name = decodeURIComponent(img.src.split('/').pop() || '');
-  if (assets[name]) img.src = assets[name];
+  if (assets[name] && img.src !== assets[name]) img.src = assets[name];
 }
 window.addEventListener('DOMContentLoaded', () => {
   const img = document.getElementById('luna');
