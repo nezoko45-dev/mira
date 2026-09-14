@@ -2,7 +2,11 @@ import json, os, sys, tempfile, traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+if getattr(sys, 'frozen', False):
+    BUNDLE_ROOT = Path(sys.executable).resolve().parent
+    ROOT = BUNDLE_ROOT.parent
+else:
+    ROOT = Path(__file__).resolve().parent
 MODEL_ROOT = ROOT / 'checkpoints_v2'
 VOICE_REF = Path(os.environ.get('LUNA_VOICE_REFERENCE', str(Path.home() / 'AppData' / 'Roaming' / 'LunaGothicCompanion' / 'voice_reference.wav')))
 OUT_DIR = Path(tempfile.gettempdir()) / 'luna-openvoice'
