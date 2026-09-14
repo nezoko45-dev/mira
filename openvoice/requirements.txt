@@ -1,0 +1,8 @@
+torch
+openvoice @ git+https://github.com/myshell-ai/OpenVoice.git
+melo-tts @ git+https://github.com/myshell-ai/MeloTTS.git
+unidic
+unidic-lite
+soundfile
+librosa
+wavmark
