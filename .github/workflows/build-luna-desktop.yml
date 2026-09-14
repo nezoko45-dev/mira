@@ -1,4 +1,4 @@
-name: Build Luna Desktop EXE
+name: Build Luna Portable Chrome App
 
 on:
   workflow_dispatch:
@@ -13,23 +13,14 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: desktop/package.json
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
       - name: Install Python runtime
         shell: pwsh
         run: |
@@ -39,31 +30,30 @@ jobs:
           python -m pip install git+https://github.com/myshell-ai/MeloTTS.git
           python -m pip install unidic unidic-lite pyinstaller huggingface_hub soundfile librosa wavmark
           python -m unidic download
-
       - name: Download OpenVoice V2 checkpoints
         shell: pwsh
         run: |
           python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='myshell-ai/OpenVoiceV2', local_dir='openvoice/checkpoints_v2')"
-
-      - name: Build OpenVoice backend
+      - name: Build Luna backend EXE
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onedir --name openvoice-server --collect-all openvoice --collect-all melo --collect-all torch --collect-all torchaudio openvoice/server.py
-          New-Item -ItemType Directory -Force -Path openvoice/openvoice-server | Out-Null
-          Copy-Item -Recurse -Force dist/openvoice-server/* openvoice/openvoice-server/
-          Remove-Item -Recurse -Force dist, build
-
-      - name: Install Electron dependencies
-        working-directory: desktop
-        run: npm install
-
-      - name: Build Windows installer
-        working-directory: desktop
-        run: npm run dist
-
-      - name: Upload installer
+          pyinstaller --noconfirm --clean --onedir --name Luna-Backend --collect-all openvoice --collect-all melo --collect-all torch --collect-all torchaudio openvoice/server.py
+      - name: Assemble portable ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item desktop/desktop.html release/Luna.html
+          Copy-Item 'luna mouth open.png' release/'luna mouth open.png'
+          Copy-Item 'luna mouth closed.png' release/'luna mouth closed.png'
+          Copy-Item desktop/start.bat release/start.bat
+          Copy-Item desktop/README.txt release/README.txt
+          New-Item -ItemType Directory -Force -Path release/Luna-Backend | Out-Null
+          Copy-Item -Recurse -Force dist/Luna-Backend/* release/Luna-Backend/
+          Copy-Item -Recurse -Force openvoice/checkpoints_v2 release/checkpoints_v2
+          Compress-Archive -Path release/* -DestinationPath Luna-Gothic-Companion-Chrome-Windows.zip -Force
+      - name: Upload portable ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Luna-Gothic-Companion-Windows
-          path: desktop/dist/*.exe
+          name: Luna-Gothic-Companion-Chrome-Windows
+          path: Luna-Gothic-Companion-Chrome-Windows.zip
           if-no-files-found: error
