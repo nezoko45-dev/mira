@@ -1,0 +1,26 @@
+{
+  "name": "luna-gothic-companion",
+  "version": "1.0.0",
+  "description": "Luna gothic AI companion desktop app",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.mira.luna",
+    "productName": "Luna Gothic Companion",
+    "directories": { "output": "dist" },
+    "files": ["**/*", "!dist/**"],
+    "extraResources": [
+      { "from": "../openvoice", "to": "openvoice", "filter": ["**/*"] }
+    ],
+    "win": { "target": "nsis", "artifactName": "Luna-Gothic-Companion-${version}-Setup.exe" },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true }
+  }
+}
