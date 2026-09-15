@@ -1,7 +1,7 @@
 {
   "name": "luna-gothic-companion",
-  "version": "1.0.0",
-  "description": "Luna gothic AI companion desktop app",
+  "version": "2.0.0",
+  "description": "Luna gothic AI companion - Electron UI with a local Mira backend",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -16,13 +16,20 @@
     "appId": "com.mira.luna",
     "productName": "Luna Gothic Companion",
     "directories": { "output": "dist" },
-    "files": ["**/*", "!dist/**"],
+    "files": ["**/*", "!dist/**", "!runtime/**"],
     "extraResources": [
-      { "from": "../openvoice", "to": "openvoice", "filter": ["**/*"] },
-      { "from": "../luna mouth open.png", "to": "luna mouth open.png" },
-      { "from": "../luna mouth closed.png", "to": "luna mouth closed.png" }
+      { "from": "runtime", "to": "runtime", "filter": ["**/*"] }
     ],
-    "win": { "target": "nsis", "artifactName": "Luna-Gothic-Companion-${version}-Setup.exe" },
-    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true }
+    "win": {
+      "target": "nsis",
+      "artifactName": "Luna-Gothic-Companion-${version}-Setup.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
