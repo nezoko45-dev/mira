@@ -5,7 +5,10 @@ imageio-ffmpeg>=0.5
 pyinstaller>=6.10
 requests>=2.32
 openvoice @ git+https://github.com/myshell-ai/OpenVoice.git
-MeloTTS @ git+https://github.com/myshell-ai/MeloTTS.git
+melo-tts @ git+https://github.com/myshell-ai/MeloTTS.git
 huggingface_hub>=0.24,<1.0
 soundfile>=0.12
+librosa>=0.10
+wavmark>=0.0.3
 unidic
+unidic-lite
