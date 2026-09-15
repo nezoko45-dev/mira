@@ -35,7 +35,7 @@ jobs:
       - name: Verify OpenVoice V2 runtime
         shell: pwsh
         run: |
-          python -c "import pkg_resources, openvoice; from openvoice.api import ToneColorConverter; from openvoice import se_extractor; from melo.api import TTS; print('OpenVoice V2 source runtime OK')"
+          python -c "import pkg_resources, openvoice; from openvoice.api import ToneColorConverter; from melo.api import TTS; print('OpenVoice V2 source runtime OK - no Whisper dependency')"
       - name: Download OpenVoice V2 checkpoints
         shell: pwsh
         run: |
@@ -80,7 +80,7 @@ jobs:
 
           Mira uses ONE visual reference image: luna.png.
           Each spoken reply creates a new MP4 using that image, OpenVoice V2 audio, and Python audio-driven animation.
-          No second mouth image is required.
+          OpenVoice voice cloning uses the reference WAV directly and does NOT use faster-whisper or whisper-timestamped.
           '@ | Set-Content -Encoding UTF8 build/package/README.txt
       - name: ZIP
         shell: pwsh
