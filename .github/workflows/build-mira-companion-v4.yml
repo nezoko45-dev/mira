@@ -1,4 +1,5 @@
 name: Build Mira Companion V6
+
 on:
   workflow_dispatch:
   push:
@@ -17,6 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install stable build dependencies
         shell: pwsh
         run: |
@@ -25,6 +27,7 @@ jobs:
           python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84"
           python -m pip install -r mira-companion/requirements.txt
           python -m pip install torch torchaudio
+
       - name: Get OpenVoice V2 source directly from upstream
         shell: pwsh
         run: |
@@ -32,32 +35,37 @@ jobs:
           python -m pip install -e build/OpenVoice --no-deps
           python -m pip install git+https://github.com/myshell-ai/MeloTTS.git
           python -m unidic download
+
       - name: Verify OpenVoice V2 runtime
         shell: pwsh
         run: |
-          python -c "import pkg_resources, openvoice; from openvoice.api import ToneColorConverter; from melo.api import TTS; print('OpenVoice V2 source runtime OK - no Whisper dependency')"
+          python -c "import openvoice; from openvoice.api import ToneColorConverter; from melo.api import TTS; print('OpenVoice V2 source runtime OK - no Whisper dependency')"
+
       - name: Download OpenVoice V2 checkpoints
         shell: pwsh
         run: |
           python -c "from huggingface_hub import snapshot_download; snapshot_download('myshell-ai/OpenVoiceV2', local_dir='build/OpenVoice/checkpoints_v2')"
+
       - name: Build OpenVoice V2 worker
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --name openvoice-server --paths build/OpenVoice --collect-all openvoice --collect-all melo --collect-all torch --collect-all torchaudio openvoice/server.py
-      - name: Assemble package
+
+      - name: Assemble core package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path build/package | Out-Null
-          Copy-Item dist/openvoice-server.exe build/package/openvoice-server.exe
-          Copy-Item -Recurse build/OpenVoice/checkpoints_v2 build/package/checkpoints_v2
-          Copy-Item 'mira-companion/index.html' build/package/index.html
-          Copy-Item 'luna mouth closed.png' build/package/luna.png
+          New-Item -ItemType Directory -Force -Path build/parts/core | Out-Null
+          Copy-Item dist/openvoice-server.exe build/parts/core/openvoice-server.exe
+          Copy-Item 'mira-companion/index.html' build/parts/core/index.html
+          Copy-Item 'luna mouth closed.png' build/parts/core/luna.png
+
       - name: Build Mira backend
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --name Mira-Companion --collect-all cv2 --collect-all imageio_ffmpeg mira-companion/backend.py
-          Copy-Item dist/Mira-Companion.exe build/package/Mira-Companion.exe
-      - name: Launcher and README
+          Copy-Item dist/Mira-Companion.exe build/parts/core/Mira-Companion.exe
+
+      - name: Add launcher and README
         shell: pwsh
         run: |
           @'
@@ -66,70 +74,73 @@ jobs:
           start "Mira" /min Mira-Companion.exe
           timeout /t 4 /nobreak >nul
           start "Mira Chrome" chrome.exe --app=http://127.0.0.1:8787/
-          '@ | Set-Content -Encoding ASCII build/package/START-MIRA.bat
+          '@ | Set-Content -Encoding ASCII build/parts/core/START-MIRA.bat
           @'
           Mira AI Companion - Local Ollama + OpenVoice V2
 
-          REQUIREMENT: Install Ollama for Windows before starting Mira.
-          Make sure the local model qwen3:4b is installed in Ollama.
-          Mira does NOT require a Claude, OpenAI, Gemini, or OpenRouter API key.
-
-          Start START-MIRA.bat.
-          Put a short clean permitted voice reference at:
+          Install Ollama for Windows and make sure qwen3:4b is installed.
+          Put your permitted voice reference at:
           %APPDATA%\LunaGothicCompanion\voice_reference.wav
 
-          Mira uses ONE visual reference image: luna.png.
-          Each spoken reply creates a new MP4 using that image, OpenVoice V2 audio, and Python audio-driven animation.
-          OpenVoice voice cloning uses the reference WAV directly and does NOT use faster-whisper or whisper-timestamped.
-          '@ | Set-Content -Encoding UTF8 build/package/README.txt
-      - name: Create ZIP
-        shell: pwsh
-        run: Compress-Archive -Path build/package/* -DestinationPath Mira-AI-Companion-Windows.zip -Force
-      - name: Split ZIP into chat-safe parts
+          Extract ALL downloaded Mira parts into the SAME folder before running START-MIRA.bat.
+          Mira uses one visual reference image: luna.png.
+          Each spoken reply creates a new MP4 using luna.png, OpenVoice V2 audio, and Python audio-driven animation.
+          No faster-whisper or whisper-timestamped dependency is installed.
+          '@ | Set-Content -Encoding UTF8 build/parts/core/README.txt
+
+      - name: Distribute checkpoint files across small parts
         shell: pwsh
         run: |
-          $source = [IO.File]::OpenRead("Mira-AI-Companion-Windows.zip")
-          $partSize = 150MB
-          $buffer = New-Object byte[] (4MB)
-          $part = 1
-          try {
-            while ($source.Position -lt $source.Length) {
-              $name = "Mira-AI-Companion-Windows.part$part"
-              $dest = [IO.File]::Create($name)
-              try {
-                $remaining = [Math]::Min($partSize, $source.Length - $source.Position)
-                while ($remaining -gt 0) {
-                  $read = $source.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
-                  if ($read -le 0) { break }
-                  $dest.Write($buffer, 0, $read)
-                  $remaining -= $read
-                }
-              } finally { $dest.Dispose() }
-              $part++
-            }
-          } finally { $source.Dispose() }
-          Get-ChildItem Mira-AI-Companion-Windows.part* | Format-Table Name,Length
-      - name: Upload part 1
+          $files = Get-ChildItem -File -Recurse build/OpenVoice/checkpoints_v2 | Sort-Object FullName
+          1..3 | ForEach-Object { New-Item -ItemType Directory -Force -Path "build/parts/part$_/checkpoints_v2" | Out-Null }
+          $i = 0
+          foreach ($f in $files) {
+            $bucket = ($i % 3) + 1
+            Copy-Item $f.FullName "build/parts/part$bucket/checkpoints_v2/$($f.Name)"
+            $i++
+          }
+          1..3 | ForEach-Object {
+            @"
+          Mira OpenVoice V2 checkpoint part $_
+
+          Extract this ZIP into the same Mira folder as the other parts.
+          The files belong under checkpoints_v2.
+          "@ | Set-Content -Encoding UTF8 "build/parts/part$_/README.txt"
+          }
+
+      - name: Create small ZIP downloads
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/parts/core/* -DestinationPath Mira-Part1-Core.zip -Force
+          Compress-Archive -Path build/parts/part1/* -DestinationPath Mira-Part2-Checkpoints.zip -Force
+          Compress-Archive -Path build/parts/part2/* -DestinationPath Mira-Part3-Checkpoints.zip -Force
+          Compress-Archive -Path build/parts/part3/* -DestinationPath Mira-Part4-Checkpoints.zip -Force
+          Get-ChildItem Mira-Part*.zip | Select-Object Name,Length
+
+      - name: Upload Part 1
         uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-Part1
-          path: Mira-AI-Companion-Windows.part1
+          name: Mira-Part1-Core
+          path: Mira-Part1-Core.zip
           retention-days: 14
-      - name: Upload part 2
+
+      - name: Upload Part 2
         uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-Part2
-          path: Mira-AI-Companion-Windows.part2
+          name: Mira-Part2-Checkpoints
+          path: Mira-Part2-Checkpoints.zip
           retention-days: 14
-      - name: Upload part 3
+
+      - name: Upload Part 3
         uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-Part3
-          path: Mira-AI-Companion-Windows.part3
+          name: Mira-Part3-Checkpoints
+          path: Mira-Part3-Checkpoints.zip
           retention-days: 14
-      - name: Upload part 4
+
+      - name: Upload Part 4
         uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-Part4
-          path: Mira-AI-Companion-Windows.part4
+          name: Mira-Part4-Checkpoints
+          path: Mira-Part4-Checkpoints.zip
           retention-days: 14
