@@ -1,0 +1,105 @@
+name: Build Luna Electron Windows App
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'desktop/**'
+      - 'mira-companion/**'
+      - 'openvoice/**'
+      - '.github/workflows/build-electron-mira.yml'
+      - 'luna mouth closed.png'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package.json
+
+      - name: Install Python build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "setuptools<81" wheel
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84"
+          python -m pip install -r mira-companion/requirements.txt
+          python -m pip install torch torchaudio
+
+      - name: Get OpenVoice V2
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git build/OpenVoice
+          python -m pip install -e build/OpenVoice --no-deps
+          python -m pip install git+https://github.com/myshell-ai/MeloTTS.git
+          python -m unidic download
+
+      - name: Verify OpenVoice V2 without Whisper packages
+        shell: pwsh
+        run: |
+          python -c "import openvoice; from openvoice.api import ToneColorConverter; from melo.api import TTS; print('OpenVoice V2 runtime OK')"
+
+      - name: Download OpenVoice V2 checkpoints
+        shell: pwsh
+        run: |
+          python -c "from huggingface_hub import snapshot_download; snapshot_download('myshell-ai/OpenVoiceV2', local_dir='build/OpenVoice/checkpoints_v2')"
+
+      - name: Build OpenVoice worker EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name openvoice-server --paths build/OpenVoice --collect-all openvoice --collect-all melo --collect-all torch --collect-all torchaudio openvoice/server.py
+
+      - name: Build Mira backend EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name Mira-Backend --collect-all cv2 --collect-all imageio_ffmpeg mira-companion/backend.py
+
+      - name: Assemble Electron runtime
+        shell: pwsh
+        run: |
+          Remove-Item desktop/runtime -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path desktop/runtime/checkpoints_v2 | Out-Null
+          Copy-Item dist/Mira-Backend.exe desktop/runtime/Mira-Backend.exe
+          Copy-Item dist/openvoice-server.exe desktop/runtime/openvoice-server.exe
+          Copy-Item desktop/desktop.html desktop/runtime/index.html
+          Copy-Item 'luna mouth closed.png' desktop/runtime/luna.png
+          Copy-Item build/OpenVoice/checkpoints_v2/* desktop/runtime/checkpoints_v2/ -Recurse
+
+      - name: Build Electron installer
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          npm install --no-audit --no-fund
+          npm run dist
+          Get-ChildItem dist | Select-Object Name,Length
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Luna-Gothic-Companion-Electron
+          path: desktop/dist/*Setup.exe
+          retention-days: 14
+
+      - name: Publish installer release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: luna-electron-${{ github.run_number }}
+          name: Luna Electron Windows ${{ github.run_number }}
+          generate_release_notes: true
+          files: desktop/dist/*Setup.exe
