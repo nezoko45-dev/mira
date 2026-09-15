@@ -2,13 +2,29 @@ const { app, BrowserWindow, dialog, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 
 let win;
 let backend;
-const PORT = 8787;
+let PORT = 8787;
 
 function runtimeRoot() {
   return path.join(process.resourcesPath, 'runtime');
+}
+
+function findFreePort(start = 8787) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => {
+      server.close();
+      findFreePort(start + 1).then(resolve, reject);
+    });
+    server.listen(start, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+  });
 }
 
 function startBackend() {
@@ -33,7 +49,7 @@ async function waitForBackend() {
     } catch {}
     await new Promise(r => setTimeout(r, 500));
   }
-  throw new Error('Mira backend did not start on port 8787.');
+  throw new Error(`Mira backend did not start on port ${PORT}.`);
 }
 
 function createWindow() {
@@ -59,6 +75,7 @@ app.whenReady().then(async () => {
     callback(permission === 'media');
   });
   try {
+    PORT = await findFreePort();
     startBackend();
     await waitForBackend();
     createWindow();
