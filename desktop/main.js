@@ -1,20 +1,40 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
 let win;
-let voiceProcess;
+let backend;
+const PORT = 8787;
 
-function startVoiceBackend() {
-  const base = path.join(process.resourcesPath, 'openvoice');
-  const candidates = process.platform === 'win32'
-    ? [path.join(base, 'openvoice-server', 'openvoice-server.exe'), path.join(base, 'openvoice-server.exe')]
-    : [path.join(base, 'openvoice-server', 'openvoice-server'), path.join(base, 'openvoice-server')];
-  const target = candidates.find(fs.existsSync);
-  if (!target) return;
-  voiceProcess = spawn(target, [], { windowsHide: true, cwd: path.dirname(target), stdio: 'ignore' });
-  voiceProcess.on('exit', () => { voiceProcess = null; });
+function runtimeRoot() {
+  return path.join(process.resourcesPath, 'runtime');
+}
+
+function startBackend() {
+  const root = runtimeRoot();
+  const exe = path.join(root, 'Mira-Backend.exe');
+  if (!fs.existsSync(exe)) throw new Error(`Mira-Backend.exe is missing: ${exe}`);
+
+  backend = spawn(exe, [], {
+    cwd: root,
+    windowsHide: true,
+    env: { ...process.env, MIRA_PORT: String(PORT) },
+    stdio: 'ignore'
+  });
+  backend.on('exit', () => { backend = null; });
+}
+
+async function waitForBackend() {
+  const url = `http://127.0.0.1:${PORT}/health`;
+  for (let i = 0; i < 90; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return;
+    } catch {}
+    await new Promise(r => setTimeout(r, 500));
+  }
+  throw new Error('Mira backend did not start on port 8787.');
 }
 
 function createWindow() {
@@ -25,24 +45,37 @@ function createWindow() {
     minHeight: 650,
     backgroundColor: '#09070b',
     title: 'Luna — AI Gothic Companion',
+    autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     }
   });
-  win.loadFile(path.join(__dirname, 'desktop.html'));
+  win.loadURL(`http://127.0.0.1:${PORT}/`);
 }
 
-app.whenReady().then(() => {
-  startVoiceBackend();
-  createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+app.whenReady().then(async () => {
+  try {
+    startBackend();
+    await waitForBackend();
+    createWindow();
+  } catch (err) {
+    const { dialog } = require('electron');
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'Luna could not start',
+      message: err.message,
+      detail: 'Make sure Ollama is installed and qwen3:4b is available.'
+    });
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {
-  if (voiceProcess) voiceProcess.kill();
+  if (backend) {
+    try { backend.kill(); } catch {}
+    backend = null;
+  }
   if (process.platform !== 'darwin') app.quit();
 });
-
-ipcMain.handle('voice-status', () => ({ running: !!voiceProcess }));
