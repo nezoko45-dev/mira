@@ -1,4 +1,4 @@
-name: Build Mira Companion V4
+name: Build Mira Companion V5
 on:
   workflow_dispatch:
   push:
@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -19,25 +19,27 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Mira build dependencies
+      - name: Install stable build dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -r mira-companion/requirements.txt
-          pip install torch torchaudio
+          python -m pip install --upgrade pip
+          python -m pip install "setuptools<81" wheel
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84"
+          python -m pip install -r mira-companion/requirements.txt
+          python -m pip install torch torchaudio
 
       - name: Get OpenVoice V2 source directly from upstream
         shell: pwsh
         run: |
           git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git build/OpenVoice
-          pip install -e build/OpenVoice --no-deps
-          pip install git+https://github.com/myshell-ai/MeloTTS.git
+          python -m pip install -e build/OpenVoice --no-deps
+          python -m pip install git+https://github.com/myshell-ai/MeloTTS.git
           python -m unidic download
 
       - name: Verify OpenVoice V2 runtime
         shell: pwsh
         run: |
-          python -c "import openvoice; from openvoice.api import ToneColorConverter; from openvoice import se_extractor; from melo.api import TTS; print('OpenVoice V2 source runtime OK')"
+          python -c "import pkg_resources, openvoice; from openvoice.api import ToneColorConverter; from openvoice import se_extractor; from melo.api import TTS; print('OpenVoice V2 source runtime OK')"
 
       - name: Download OpenVoice V2 checkpoints
         shell: pwsh
@@ -93,6 +95,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-V4
+          name: Mira-AI-Companion-Windows-V5
           path: Mira-AI-Companion-Windows.zip
           retention-days: 14
