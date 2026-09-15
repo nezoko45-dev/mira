@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -15,7 +15,6 @@ function startBackend() {
   const root = runtimeRoot();
   const exe = path.join(root, 'Mira-Backend.exe');
   if (!fs.existsSync(exe)) throw new Error(`Mira-Backend.exe is missing: ${exe}`);
-
   backend = spawn(exe, [], {
     cwd: root,
     windowsHide: true,
@@ -27,7 +26,7 @@ function startBackend() {
 
 async function waitForBackend() {
   const url = `http://127.0.0.1:${PORT}/health`;
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 120; i++) {
     try {
       const r = await fetch(url);
       if (r.ok) return;
@@ -56,12 +55,14 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media');
+  });
   try {
     startBackend();
     await waitForBackend();
     createWindow();
   } catch (err) {
-    const { dialog } = require('electron');
     await dialog.showMessageBox({
       type: 'error',
       title: 'Luna could not start',
