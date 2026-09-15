@@ -82,11 +82,54 @@ jobs:
           Each spoken reply creates a new MP4 using that image, OpenVoice V2 audio, and Python audio-driven animation.
           OpenVoice voice cloning uses the reference WAV directly and does NOT use faster-whisper or whisper-timestamped.
           '@ | Set-Content -Encoding UTF8 build/package/README.txt
-      - name: ZIP
+      - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path build/package/* -DestinationPath Mira-AI-Companion-Windows.zip -Force
-      - uses: actions/upload-artifact@v4
+      - name: Split ZIP into chat-safe parts
+        shell: pwsh
+        run: |
+          $source = [IO.File]::OpenRead("Mira-AI-Companion-Windows.zip")
+          $partSize = 150MB
+          $buffer = New-Object byte[] (4MB)
+          $part = 1
+          try {
+            while ($source.Position -lt $source.Length) {
+              $name = "Mira-AI-Companion-Windows.part$part"
+              $dest = [IO.File]::Create($name)
+              try {
+                $remaining = [Math]::Min($partSize, $source.Length - $source.Position)
+                while ($remaining -gt 0) {
+                  $read = $source.Read($buffer, 0, [Math]::Min($buffer.Length, $remaining))
+                  if ($read -le 0) { break }
+                  $dest.Write($buffer, 0, $read)
+                  $remaining -= $read
+                }
+              } finally { $dest.Dispose() }
+              $part++
+            }
+          } finally { $source.Dispose() }
+          Get-ChildItem Mira-AI-Companion-Windows.part* | Format-Table Name,Length
+      - name: Upload part 1
+        uses: actions/upload-artifact@v4
         with:
-          name: Mira-AI-Companion-Windows-V6
-          path: Mira-AI-Companion-Windows.zip
+          name: Mira-AI-Companion-Windows-Part1
+          path: Mira-AI-Companion-Windows.part1
+          retention-days: 14
+      - name: Upload part 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mira-AI-Companion-Windows-Part2
+          path: Mira-AI-Companion-Windows.part2
+          retention-days: 14
+      - name: Upload part 3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mira-AI-Companion-Windows-Part3
+          path: Mira-AI-Companion-Windows.part3
+          retention-days: 14
+      - name: Upload part 4
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mira-AI-Companion-Windows-Part4
+          path: Mira-AI-Companion-Windows.part4
           retention-days: 14
