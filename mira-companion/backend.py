@@ -5,7 +5,7 @@ from urllib.request import Request,urlopen
 from urllib.error import HTTPError
 if getattr(sys,'frozen',False): ROOT=Path(sys.executable).resolve().parent
 else: ROOT=Path(__file__).resolve().parent.parent
-UI=ROOT; CLOSED=ROOT/'luna mouth closed.png'; OPEN=ROOT/'luna mouth open.png'; PORT=int(os.environ.get('MIRA_PORT','8787')); CACHE=Path(os.environ.get('MIRA_CACHE',str(Path.home()/'AppData'/'Roaming'/'MiraCompanion'))); CACHE.mkdir(parents=True,exist_ok=True); worker=None
+UI=ROOT; REFERENCE=ROOT/'luna.png'; PORT=int(os.environ.get('MIRA_PORT','8787')); CACHE=Path(os.environ.get('MIRA_CACHE',str(Path.home()/'AppData'/'Roaming'/'MiraCompanion'))); CACHE.mkdir(parents=True,exist_ok=True); worker=None
 
 def start_openvoice():
  global worker
@@ -45,16 +45,20 @@ def synthesize(text):
 
 def make_video(wav_bytes):
  import wave,io,cv2,numpy as np,imageio_ffmpeg
+ a=cv2.imread(str(REFERENCE),cv2.IMREAD_COLOR)
+ if a is None: raise RuntimeError('Mira reference image luna.png is missing.')
  with wave.open(io.BytesIO(wav_bytes),'rb') as w: rate=w.getframerate(); total=w.getnframes(); channels=w.getnchannels(); raw=w.readframes(total)
- a=cv2.imread(str(CLOSED),cv2.IMREAD_UNCHANGED); b=cv2.imread(str(OPEN),cv2.IMREAD_UNCHANGED)
- if a is None or b is None: raise RuntimeError('Mira mouth image assets are missing.')
- h=min(a.shape[0],b.shape[0]); ww=min(a.shape[1],b.shape[1]); a=cv2.resize(a,(ww,h)); b=cv2.resize(b,(ww,h)); fps=24; count=max(1,int(total/rate*fps)); pcm=np.frombuffer(raw,dtype=np.int16); pcm=pcm.reshape(-1,channels).mean(1) if channels>1 else pcm; energy=np.abs(pcm.astype(np.float32)); threshold=max(180.0,float(np.percentile(energy,58))); folder=CACHE/f'video-{uuid.uuid4().hex}'; folder.mkdir(); silent=folder/'silent.mp4'; audio=folder/'audio.wav'; out=folder/'mira.mp4'; audio.write_bytes(wav_bytes); vw=cv2.VideoWriter(str(silent),cv2.VideoWriter_fourcc(*'mp4v'),fps,(ww,h)); win=max(1,int(rate*.055))
+ fps=24; count=max(1,int(total/rate*fps)); pcm=np.frombuffer(raw,dtype=np.int16); pcm=pcm.reshape(-1,channels).mean(1) if channels>1 else pcm; energy=np.abs(pcm.astype(np.float32)); threshold=max(180.0,float(np.percentile(energy,58))); folder=CACHE/f'video-{uuid.uuid4().hex}'; folder.mkdir(); silent=folder/'silent.mp4'; audio=folder/'audio.wav'; out=folder/'mira.mp4'; audio.write_bytes(wav_bytes); vw=cv2.VideoWriter(str(silent),cv2.VideoWriter_fourcc(*'mp4v'),fps,(a.shape[1],a.shape[0]));
  for i in range(count):
-  c=min(len(energy)-1,int(i/fps*rate)); q=energy[max(0,c-win):min(len(energy),c+win)]; level=float(q.mean()) if len(q) else 0; frame=b if level>threshold else a; vw.write(frame[:,:,:3] if frame.shape[2]==4 else frame)
+  c=min(len(energy)-1,int(i/fps*rate)); win=max(1,int(rate*.055)); q=energy[max(0,c-win):min(len(energy),c+win)]; level=float(q.mean()) if len(q) else 0
+  frame=a.copy()
+  # Single-image talking animation: subtle vertical jaw/head motion driven by speech energy.
+  shift=int(max(0,min(3,(level/threshold-0.8)*3))) if level>threshold else 0
+  if shift: frame=np.roll(frame,shift,axis=0)
+  vw.write(frame)
  vw.release(); ff=imageio_ffmpeg.get_ffmpeg_exe(); p=subprocess.run([ff,'-y','-i',str(silent),'-i',str(audio),'-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',str(out)],capture_output=True,text=True)
  if p.returncode: raise RuntimeError(p.stderr[-1000:])
- data=out.read_bytes(); (CACHE/'latest.mp4').write_bytes(data)
- return data
+ data=out.read_bytes(); (CACHE/'latest.mp4').write_bytes(data); return data
 class Handler(BaseHTTPRequestHandler):
  def log_message(self,*args): print('[Mira]',*args)
  def send_json(self,code,obj):
@@ -63,8 +67,7 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   p=self.path.split('?',1)[0]
   if p=='/health': return self.send_json(200,{'ok':True,'mira':True,'openvoice':True})
-  if p=='/asset/closed': return self.binary('image/png',CLOSED.read_bytes()) if CLOSED.exists() else self.send_error(404)
-  if p=='/asset/open': return self.binary('image/png',OPEN.read_bytes()) if OPEN.exists() else self.send_error(404)
+  if p=='/asset/mira': return self.binary('image/png',REFERENCE.read_bytes()) if REFERENCE.exists() else self.send_error(404)
   if p=='/latest.mp4':
    f=CACHE/'latest.mp4'; return self.binary('video/mp4',f.read_bytes()) if f.exists() else self.send_error(404)
   if p in ['/','/index.html']: return self.binary('text/html',(UI/'index.html').read_bytes())
