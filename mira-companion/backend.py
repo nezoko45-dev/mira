@@ -3,15 +3,17 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError
-ROOT=Path(__file__).resolve().parent.parent; UI=ROOT/'mira-companion'; CLOSED=ROOT/'luna mouth closed.png'; OPEN=ROOT/'luna mouth open.png'; PORT=int(os.environ.get('MIRA_PORT','8787')); CACHE=Path(os.environ.get('MIRA_CACHE',str(Path.home()/'AppData'/'Roaming'/'MiraCompanion'))); CACHE.mkdir(parents=True,exist_ok=True); worker=None
+if getattr(sys,'frozen',False): ROOT=Path(sys.executable).resolve().parent
+else: ROOT=Path(__file__).resolve().parent.parent
+UI=ROOT; CLOSED=ROOT/'luna mouth closed.png'; OPEN=ROOT/'luna mouth open.png'; PORT=int(os.environ.get('MIRA_PORT','8787')); CACHE=Path(os.environ.get('MIRA_CACHE',str(Path.home()/'AppData'/'Roaming'/'MiraCompanion'))); CACHE.mkdir(parents=True,exist_ok=True); worker=None
 
 def start_openvoice():
  global worker
  try: urlopen('http://127.0.0.1:8765/health',timeout=1); return
  except Exception: pass
  if getattr(sys,'frozen',False):
-  target=Path(sys.executable).with_name('openvoice-server.exe')
-  if target.exists(): worker=subprocess.Popen([str(target)],cwd=str(target.parent),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+  target=ROOT/'openvoice-server.exe'
+  if target.exists(): worker=subprocess.Popen([str(target)],cwd=str(ROOT),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
  else:
   script=ROOT/'openvoice'/'server.py'
   if script.exists(): worker=subprocess.Popen([sys.executable,str(script)],cwd=str(ROOT/'openvoice'),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
