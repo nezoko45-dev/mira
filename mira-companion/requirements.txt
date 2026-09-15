@@ -1,6 +1,6 @@
 anthropic>=0.40
-numpy>=1.26,<3
-opencv-python-headless>=4.10
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
 imageio-ffmpeg>=0.5
 pyinstaller>=6.10
 requests>=2.32
@@ -10,3 +10,4 @@ librosa>=0.10
 wavmark>=0.0.3
 unidic
 unidic-lite
+setuptools<81
