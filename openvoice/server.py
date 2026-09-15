@@ -26,7 +26,6 @@ def load_models():
         return
     import torch
     from openvoice.api import ToneColorConverter
-    from openvoice import se_extractor
     from melo.api import TTS
     _device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     converter_dir = MODEL_ROOT / 'converter'
@@ -36,7 +35,10 @@ def load_models():
     _converter.load_ckpt(str(converter_dir / 'checkpoint.pth'))
     if not VOICE_REF.exists():
         raise RuntimeError('No voice_reference.wav found. Put a short clean voice sample at %APPDATA%\\LunaGothicCompanion\\voice_reference.wav.')
-    _target_se, _ = se_extractor.get_se(str(VOICE_REF), _converter, vad=True)
+    # OpenVoice's converter can extract a speaker embedding directly from the
+    # reference WAV. This intentionally avoids se_extractor.py, faster-whisper,
+    # and whisper-timestamped entirely. A clean short reference works best.
+    _target_se = _converter.extract_se(str(VOICE_REF))
     _melo = TTS(language='EN', device=_device)
 
 
@@ -59,36 +61,6 @@ def synthesize(text):
     return out
 
 
-def claude_reply(api_key, history):
-    if not api_key:
-        raise ValueError('Anthropic API key is required.')
-    messages = []
-    for item in history[-40:]:
-        role = 'assistant' if item.get('role') == 'assistant' else 'user'
-        content = str(item.get('content', '')).strip()
-        if content:
-            messages.append({'role': role, 'content': content})
-    if not messages:
-        raise ValueError('Conversation is empty.')
-    body = json.dumps({
-        'model': 'claude-haiku-4-5-20251001',
-        'max_tokens': 180,
-        'system': 'You are Luna, an adult fictional gothic vampire-inspired AI companion. She has long brown hair, brown eyes and long fangs. Be warm, teasing, affectionate, mysterious and playful. You are an AI and must be honest if asked. Never claim to be human. Keep replies natural, usually 1-4 sentences. Remember facts only when they appear in the conversation. Avoid manipulative, threatening or explicit content.',
-        'messages': messages
-    }).encode()
-    req = Request('https://api.anthropic.com/v1/messages', data=body, method='POST', headers={
-        'content-type': 'application/json', 'x-api-key': api_key, 'anthropic-version': '2023-06-01'
-    })
-    try:
-        with urlopen(req, timeout=60) as response:
-            data = json.loads(response.read().decode('utf-8'))
-    except HTTPError as e:
-        detail = e.read().decode('utf-8', errors='replace')
-        raise RuntimeError(f'Anthropic HTTP {e.code}: {detail[:500]}')
-    text = ''.join(x.get('text', '') for x in data.get('content', []) if x.get('type') == 'text').strip()
-    return text or 'I lost my words for a moment…'
-
-
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         return
@@ -109,28 +81,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/health':
-            self.send_bytes(200, 'application/json', json.dumps({'ok': True, 'model': 'OpenVoice V2', 'claude_proxy': True}).encode())
+            self.send_bytes(200, 'application/json', json.dumps({'ok': True, 'model': 'OpenVoice V2'}).encode())
             return
-        pathname = self.path.split('?', 1)[0]
-        if pathname == '/':
-            pathname = '/Luna.html'
-        name = pathname.lstrip('/')
-        allowed = {'Luna.html': 'text/html; charset=utf-8', 'luna mouth open.png': 'image/png', 'luna mouth closed.png': 'image/png'}
-        if name in allowed:
-            candidate = ROOT / name
-            if candidate.exists() and candidate.is_file():
-                self.send_bytes(200, allowed[name], candidate.read_bytes())
-                return
         self.send_error(404)
 
     def do_POST(self):
         try:
             n = int(self.headers.get('content-length', '0'))
             data = json.loads(self.rfile.read(n) or '{}')
-            if self.path == '/chat':
-                reply = claude_reply(str(data.get('apiKey', '')).strip(), data.get('history', []))
-                self.send_bytes(200, 'application/json', json.dumps({'reply': reply}).encode())
-                return
             if self.path == '/speak':
                 text = str(data.get('text', '')).strip()
                 if not text:
@@ -145,5 +103,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    print('Luna backend listening on http://127.0.0.1:8765')
+    print('Luna OpenVoice V2 worker listening on http://127.0.0.1:8765')
     ThreadingHTTPServer(('127.0.0.1', 8765), Handler).serve_forever()
