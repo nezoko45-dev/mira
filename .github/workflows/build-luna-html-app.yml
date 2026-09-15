@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,11 +25,23 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Download Wav2Lip source and model files
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/Rudrabha/Wav2Lip.git Wav2Lip
+          New-Item -ItemType Directory -Force -Path Wav2Lip/checkpoints | Out-Null
+          New-Item -ItemType Directory -Force -Path Wav2Lip/face_detection/detection/sfd | Out-Null
+          Invoke-WebRequest -Uri 'https://huggingface.co/rippertnt/wav2lip/resolve/main/checkpoints/wav2lip.pth?download=true' -OutFile Wav2Lip/checkpoints/wav2lip.pth
+          Invoke-WebRequest -Uri 'https://huggingface.co/gmk123/wav2lip/resolve/main/s3fd-619a316812.pth?download=true' -OutFile Wav2Lip/face_detection/detection/sfd/s3fd.pth
+          if ((Get-Item Wav2Lip/checkpoints/wav2lip.pth).Length -lt 300000000) { throw 'Wav2Lip checkpoint download is incomplete.' }
+          if ((Get-Item Wav2Lip/face_detection/detection/sfd/s3fd.pth).Length -lt 70000000) { throw 'S3FD checkpoint download is incomplete.' }
+
+      - name: Install Wav2Lip runtime dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r luna-app/requirements.txt pyinstaller
+          python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy==1.26.4 scipy<1.14 librosa==0.10.2 numba==0.59.1 opencv-python tqdm ffmpeg-python pyinstaller
 
       - name: Assemble runtime
         shell: pwsh
@@ -38,10 +50,24 @@ jobs:
           Copy-Item luna-app/index.html build/luna/index.html
           Copy-Item 'luna mouth closed.png' build/luna/luna.png
 
-      - name: Build backend EXE
+      - name: Build Wav2Lip AI runner EXE
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --name Luna-Backend --collect-all cv2 --collect-all imageio_ffmpeg --collect-all numpy luna-app/backend.py
+          pyinstaller --noconfirm --clean --onedir --name Wav2LipRunner `
+            --paths Wav2Lip `
+            --collect-submodules face_detection `
+            --collect-submodules torch `
+            --collect-submodules torchvision `
+            --add-data 'Wav2Lip/face_detection;face_detection' `
+            --add-data 'Wav2Lip/checkpoints;checkpoints' `
+            Wav2Lip/inference.py
+          Copy-Item -Recurse dist/Wav2LipRunner build/luna/Wav2LipRunner
+          if (!(Test-Path build/luna/Wav2LipRunner/Wav2LipRunner.exe)) { throw 'Wav2LipRunner.exe missing' }
+
+      - name: Build Luna backend EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name Luna-Backend luna-app/backend.py
           Copy-Item dist/Luna-Backend.exe build/luna/Luna-Backend.exe
 
       - name: Verify package
@@ -50,7 +76,8 @@ jobs:
           if (!(Test-Path build/luna/index.html)) { throw 'index.html missing' }
           if (!(Test-Path build/luna/luna.png)) { throw 'luna.png missing' }
           if (!(Test-Path build/luna/Luna-Backend.exe)) { throw 'Luna-Backend.exe missing' }
-          Get-ChildItem build/luna | Format-Table Name,Length
+          if (!(Test-Path build/luna/Wav2LipRunner/Wav2LipRunner.exe)) { throw 'Wav2Lip runner missing' }
+          Get-ChildItem build/luna -Recurse | Select-Object FullName,Length | Format-Table -AutoSize
 
       - name: Create launcher
         shell: pwsh
@@ -59,15 +86,16 @@ jobs:
           @echo off
           cd /d "%~dp0"
           start "Luna Backend" /min "%~dp0Luna-Backend.exe"
-          timeout /t 2 /nobreak >nul
+          timeout /t 3 /nobreak >nul
           start "Luna HTML App" http://127.0.0.1:8787/
           '@ | Set-Content -Encoding ASCII build/luna/START-LUNA.bat
           @'
-          Luna Gothic HTML App
+          Luna Gothic HTML App - Wav2Lip Edition
 
           Run START-LUNA.bat.
-          The local Python backend serves the HTML app and creates MP4 videos from luna.png.
-          Voice calls use the browser microphone. When a call ends, Luna automatically sends a random follow-up message and generates another video.
+          Luna uses Wav2Lip AI to generate actual mouth movement synchronized to her generated speech from luna.png.
+          Wav2Lip runs locally in the bundled Windows runtime. No second mouth image is used.
+          Voice calls use the browser microphone. When a call ends, Luna automatically sends a random follow-up message and generates another lip-synced video.
           '@ | Set-Content -Encoding UTF8 build/luna/README.txt
 
       - name: Zip
