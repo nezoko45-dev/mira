@@ -37,7 +37,7 @@ jobs:
           Copy-Item luna-app/Luna-Backend.exe release/Luna-Backend.exe
           Copy-Item luna-app/index.html release/index.html
           Copy-Item 'luna mouth closed.png' 'release/luna mouth closed.png'
-          Set-Content release/README.txt @('LUNA VOICE APP','','Double-click Luna-Backend.exe. Chrome opens automatically.','','Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> MuseTalk 1.5 -> MP4 -> Chrome.','','Enter your Deepgram API key in Chrome. MuseTalk 1.5 uses the public Hugging Face ZeroGPU Space; no Replicate token is required.','','Only luna mouth closed.png is used for Luna.')
+          Set-Content release/README.txt @('LUNA VOICE APP','','Double-click Luna-Backend.exe. Chrome opens automatically.','','Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> browser JavaScript talking animation -> ffmpeg.wasm MP4 -> Chrome.','','Enter your Deepgram API key in Chrome. MuseTalk and Gradio are not used.','','Only luna mouth closed.png is used for Luna. The browser creates audio-driven motion from this single image.')
       - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path release/* -DestinationPath Luna-Voice-App.zip -Force
