@@ -4,61 +4,57 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'luna-app/server.js'
-      - 'luna-app/package.json'
-      - 'luna-app/index.html'
-      - 'luna mouth closed.png'
-      - '.github/workflows/build-luna-voice-exe.yml'
+      - luna-app/server.js
+      - luna-app/package.json
+      - luna-app/index.html
+      - luna mouth closed.png
+      - .github/workflows/build-luna-voice-exe.yml
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Node.js 20
+      - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: luna-app/package.json
 
-      - name: Install packager
+      - name: Install Luna packager
         working-directory: luna-app
         run: npm install
 
-      - name: Build Windows EXE
+      - name: Build Luna-Backend.exe
         working-directory: luna-app
-        run: npx @yao-pkg/pkg . --targets node20-win-x64 --output Luna-Backend.exe
+        run: npx @yao-pkg/pkg@6.22.0 . --targets node20-win-x64 --output Luna-Backend.exe --compress Brotli
 
-      - name: Assemble Luna package
+      - name: Assemble release folder
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release/luna-app | Out-Null
           Copy-Item luna-app/Luna-Backend.exe release/Luna-Backend.exe
           Copy-Item luna-app/index.html release/luna-app/index.html
           Copy-Item 'luna mouth closed.png' 'release/luna mouth closed.png'
-          Set-Content -Path release/README.txt -Value @'
+          @'
 LUNA VOICE APP
 
-1. Keep Luna-Backend.exe and the luna-app folder together.
-2. Double-click Luna-Backend.exe.
-3. Chrome opens automatically.
-4. Enter your Deepgram API key and Replicate token in the app. They are kept in the browser and sent only to the local Luna backend.
-5. Start the voice call and speak.
+Double-click Luna-Backend.exe. Chrome opens automatically.
 
-Pipeline:
+The app uses:
 Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> Wav2Lip -> MP4 -> Chrome
 
-The app uses only luna mouth closed.png for Luna's source image.
-'@
+Enter your Deepgram API key and Replicate token in the Chrome app. They are stored locally in your browser and passed only to the local Luna backend.
 
-      - name: Zip release
+Only luna mouth closed.png is used for Luna's source image.
+'@ | Set-Content release/README.txt
+
+      - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path release/* -DestinationPath Luna-Voice-App.zip -Force
 
-      - name: Upload artifact
+      - name: Upload Luna ZIP
         uses: actions/upload-artifact@v4
         with:
           name: Luna-Voice-App
