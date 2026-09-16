@@ -1,11 +1,11 @@
-name: Build Luna HTML App
+name: Build Luna Cloud Lip-Sync App
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'luna-app/**'
+      - 'luna-app/index.html'
       - 'luna mouth closed.png'
       - '.github/workflows/build-luna-html-app.yml'
 
@@ -14,103 +14,43 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
-    timeout-minutes: 90
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Download Wav2Lip source and model files
-        shell: pwsh
+      - name: Assemble Chrome app
+        shell: bash
         run: |
-          git clone --depth 1 https://github.com/Rudrabha/Wav2Lip.git Wav2Lip
-          New-Item -ItemType Directory -Force -Path Wav2Lip/checkpoints | Out-Null
-          New-Item -ItemType Directory -Force -Path Wav2Lip/face_detection/detection/sfd | Out-Null
-          Invoke-WebRequest -Uri 'https://huggingface.co/rippertnt/wav2lip/resolve/main/checkpoints/wav2lip.pth?download=true' -OutFile Wav2Lip/checkpoints/wav2lip.pth
-          Invoke-WebRequest -Uri 'https://huggingface.co/gmk123/wav2lip/resolve/main/s3fd-619a316812.pth?download=true' -OutFile Wav2Lip/face_detection/detection/sfd/s3fd.pth
-          if ((Get-Item Wav2Lip/checkpoints/wav2lip.pth).Length -lt 300000000) { throw 'Wav2Lip checkpoint download is incomplete.' }
-          if ((Get-Item Wav2Lip/face_detection/detection/sfd/s3fd.pth).Length -lt 70000000) { throw 'S3FD checkpoint download is incomplete.' }
+          rm -rf build/luna
+          mkdir -p build/luna
+          cp luna-app/index.html build/luna/index.html
+          cp 'luna mouth closed.png' build/luna/luna.png
+          cat > build/luna/README.txt <<'EOF'
+          Luna Gothic Companion - Cloud Wav2Lip Edition
 
-      - name: Install compatible Wav2Lip runtime
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install numpy==1.26.4 scipy==1.13.1 librosa==0.9.2 numba==0.59.1 opencv-python tqdm ffmpeg-python pyinstaller
-          python -c "import librosa; import numpy; print('librosa', librosa.__version__); print(librosa.filters.mel(16000, 800, n_mels=80, fmin=55, fmax=7600).shape)"
+          Open index.html in Chrome through a local/static web server.
+          No Python, PyTorch, librosa, Wav2Lip executable, or Electron runtime is included.
 
-      - name: Assemble runtime
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build/luna | Out-Null
-          Copy-Item luna-app/index.html build/luna/index.html
-          Copy-Item 'luna mouth closed.png' build/luna/luna.png
-
-      - name: Build Wav2Lip AI runner EXE
-        shell: pwsh
-        run: |
-          pyinstaller --noconfirm --clean --onedir --name Wav2LipRunner `
-            --paths Wav2Lip `
-            --hidden-import audio `
-            --hidden-import models `
-            --hidden-import face_detection `
-            --collect-submodules face_detection `
-            --collect-submodules torch `
-            --collect-submodules torchvision `
-            --add-data 'Wav2Lip/face_detection;face_detection' `
-            --add-data 'Wav2Lip/checkpoints;checkpoints' `
-            Wav2Lip/inference.py
-          Copy-Item -Recurse dist/Wav2LipRunner build/luna/Wav2LipRunner
-          if (!(Test-Path build/luna/Wav2LipRunner/Wav2LipRunner.exe)) { throw 'Wav2LipRunner.exe missing' }
-          & build/luna/Wav2LipRunner/Wav2LipRunner.exe --help
-          if ($LASTEXITCODE -ne 0) { throw 'Wav2LipRunner executable failed its startup/import check.' }
-
-      - name: Build Luna backend EXE
-        shell: pwsh
-        run: |
-          pyinstaller --noconfirm --clean --onefile --name Luna-Backend luna-app/backend.py
-          Copy-Item dist/Luna-Backend.exe build/luna/Luna-Backend.exe
+          The Animate Luna button sends luna.png and an audio file to a hosted Wav2Lip Space and plays the returned MP4.
+          Luna uses only the single mouth-closed image.
+          EOF
 
       - name: Verify package
-        shell: pwsh
+        shell: bash
         run: |
-          if (!(Test-Path build/luna/index.html)) { throw 'index.html missing' }
-          if (!(Test-Path build/luna/luna.png)) { throw 'luna.png missing' }
-          if (!(Test-Path build/luna/Luna-Backend.exe)) { throw 'Luna-Backend.exe missing' }
-          if (!(Test-Path build/luna/Wav2LipRunner/Wav2LipRunner.exe)) { throw 'Wav2Lip runner missing' }
-          Get-ChildItem build/luna -Recurse | Select-Object FullName,Length | Format-Table -AutoSize
-
-      - name: Create launcher
-        shell: pwsh
-        run: |
-          @'
-          @echo off
-          cd /d "%~dp0"
-          start "Luna Backend" /min "%~dp0Luna-Backend.exe"
-          timeout /t 3 /nobreak >nul
-          start "Luna HTML App" http://127.0.0.1:8787/
-          '@ | Set-Content -Encoding ASCII build/luna/START-LUNA.bat
-          @'
-          Luna Gothic HTML App - Wav2Lip Edition
-
-          Run START-LUNA.bat.
-          Luna uses Wav2Lip AI to generate actual mouth movement synchronized to her generated speech from luna.png.
-          Wav2Lip runs locally in the bundled Windows runtime. No second mouth image is used.
-          Voice calls use the browser microphone. When a call ends, Luna automatically sends a random follow-up message and generates another lip-synced video.
-          '@ | Set-Content -Encoding UTF8 build/luna/README.txt
+          test -f build/luna/index.html
+          test -f build/luna/luna.png
+          grep -q 'hosted Wav2Lip' build/luna/index.html
+          find build/luna -maxdepth 1 -type f -printf '%f %s bytes\n'
 
       - name: Zip
-        shell: pwsh
-        run: Compress-Archive -Path build/luna/* -DestinationPath Luna-HTML-App-Windows.zip -Force
+        shell: bash
+        run: cd build/luna && zip -r ../../Luna-Cloud-Wav2Lip.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Luna-HTML-App-Windows
-          path: Luna-HTML-App-Windows.zip
+          name: Luna-Cloud-Wav2Lip
+          path: Luna-Cloud-Wav2Lip.zip
           retention-days: 14
