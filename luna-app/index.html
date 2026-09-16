@@ -1,94 +1,28 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Luna — Deepgram + JavaScript MP4</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luna — FasterLivePortrait</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#08060a;color:#f7edf5;font-family:system-ui,Segoe UI,sans-serif}.app{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;padding:16px;max-width:1400px;margin:auto}.card{background:#130d16;border:1px solid #432b40;border-radius:22px;overflow:hidden}.stage{min-height:calc(100vh - 32px);display:grid;place-items:center;position:relative;background:radial-gradient(circle at 50% 35%,#3a1b36,#09070b 68%);padding:64px 20px}.stage img,.stage video{max-width:92%;max-height:78vh;width:auto;height:auto;border-radius:18px;object-fit:contain}.stage video{display:none}.talking{filter:drop-shadow(0 0 28px #d65caa)}.bar{position:absolute;top:0;left:0;right:0;padding:18px 22px;display:flex;justify-content:space-between;background:linear-gradient(#09070ddd,transparent)}.brand{font-weight:900;letter-spacing:.14em}.status{font-size:12px;color:#d2bdd0}.caption{position:absolute;bottom:18px;left:5%;right:5%;padding:13px 16px;border-radius:14px;background:#09070bee;text-align:center}.side{padding:20px;display:flex;flex-direction:column;min-height:calc(100vh - 32px)}h1{margin:0 0 4px}.small{font-size:12px;color:#a894a5}.messages{flex:1;overflow:auto;margin-top:16px;min-height:220px}.msg{padding:10px 12px;margin:8px 0;border-radius:14px;white-space:pre-wrap}.you{background:#261923;margin-left:12%}.lunaMsg{background:#1a1019;margin-right:8%}.row{display:flex;gap:8px;margin-top:10px}input{width:100%;background:#0b080d;color:#fff;border:1px solid #57364f;border-radius:11px;padding:12px}button{border:0;border-radius:11px;padding:11px 14px;background:#b34e8c;color:#fff;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.call{width:100%;margin-top:10px;background:#e267aa}.call.active{background:#5c304b}.settings,.tools{margin-top:12px;padding:12px;border:1px solid #52344c;border-radius:14px}.settings input,.tools input{margin-top:7px}.settings button,.tools button{margin-top:8px;width:100%;background:#493047}.note{margin-top:12px;padding:11px;border:1px solid #382431;border-radius:12px;color:#ad9baa;font-size:12px}@media(max-width:850px){.app{grid-template-columns:1fr}.stage{min-height:65vh}.side{min-height:auto}}
+*{box-sizing:border-box}body{margin:0;background:#08060a;color:#f7edf5;font-family:system-ui,Segoe UI,sans-serif}.app{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;padding:16px;max-width:1400px;margin:auto}.card{background:#130d16;border:1px solid #432b40;border-radius:22px;overflow:hidden}.stage{min-height:calc(100vh - 32px);display:grid;place-items:center;position:relative;background:radial-gradient(circle at 50% 35%,#3a1b36,#09070b 68%);padding:64px 20px}.stage img,.stage video{max-width:92%;max-height:78vh;width:auto;height:auto;border-radius:18px;object-fit:contain}.stage video{display:none;background:#000}.talking{filter:drop-shadow(0 0 28px #d65caa)}.bar{position:absolute;top:0;left:0;right:0;padding:18px 22px;display:flex;justify-content:space-between;background:linear-gradient(#09070ddd,transparent)}.brand{font-weight:900;letter-spacing:.14em}.status{font-size:12px;color:#d2bdd0}.caption{position:absolute;bottom:18px;left:5%;right:5%;padding:13px 16px;border-radius:14px;background:#09070bee;text-align:center}.side{padding:20px;display:flex;flex-direction:column;min-height:calc(100vh - 32px)}h1{margin:0 0 4px}.small{font-size:12px;color:#a894a5}.messages{flex:1;overflow:auto;margin-top:16px;min-height:220px}.msg{padding:10px 12px;margin:8px 0;border-radius:14px;white-space:pre-wrap}.you{background:#261923;margin-left:12%}.lunaMsg{background:#1a1019;margin-right:8%}.row{display:flex;gap:8px;margin-top:10px}input{width:100%;background:#0b080d;color:#fff;border:1px solid #57364f;border-radius:11px;padding:12px}button{border:0;border-radius:11px;padding:11px 14px;background:#b34e8c;color:#fff;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.call{width:100%;margin-top:10px;background:#e267aa}.call.active{background:#5c304b}.settings{margin-top:12px;padding:12px;border:1px solid #52344c;border-radius:14px}.settings input{margin-top:7px}.settings button{margin-top:8px;width:100%;background:#493047}.engine{margin-top:12px;padding:12px;border:1px solid #382431;border-radius:14px;font-size:12px}.ok{color:#9fe0ae}.bad{color:#e5a0b6}@media(max-width:850px){.app{grid-template-columns:1fr}.stage{min-height:65vh}.side{min-height:auto}}
 </style>
 </head>
 <body>
-<main class="app">
-<section class="card stage">
-<div class="bar"><div class="brand">LUNA 🖤</div><div id="status" class="status">Ready</div></div>
-<img id="luna" src="/luna.png" alt="Luna">
-<video id="video" playsinline controls preload="metadata"></video>
-<div id="caption" class="caption">Luna is ready.</div>
-</section>
-<aside class="card side">
-<h1>Luna</h1><div class="small">Chrome UI • Deepgram STT/TTS • JavaScript MP4</div>
-<div id="messages" class="messages"></div>
-<div class="row"><input id="text" placeholder="Talk to Luna…"><button id="send">Speak</button></div>
-<button id="call" class="call">☎ Start voice call</button>
+<main class="app"><section class="card stage"><div class="bar"><div class="brand">LUNA 🖤</div><div id="status" class="status">Ready</div></div><img id="luna" src="/luna.png" alt="Luna"><video id="video" playsinline controls preload="metadata"></video><div id="caption" class="caption">Luna is ready.</div></section>
+<aside class="card side"><h1>Luna</h1><div class="small">Chrome UI • Deepgram STT/TTS • FasterLivePortrait</div><div id="messages" class="messages"></div><div class="row"><input id="text" placeholder="Talk to Luna…"><button id="send">Speak</button></div><button id="call" class="call">☎ Start voice call</button>
 <div class="settings"><b>Deepgram API key</b><div class="small">Saved only in this browser and sent to the local Luna backend.</div><input id="dg" type="password" placeholder="Deepgram API key"><button id="saveKeys">Save key</button></div>
-<div class="tools"><b>Make an MP4 from an MP3</b><div class="small">Browser JavaScript animates Luna's single closed-mouth image to the audio, records WebM, then converts it to MP4 with ffmpeg.wasm.</div><input id="mp3" type="file" accept="audio/mpeg,audio/mp3,audio/*"><button id="animate">🎬 Make MP4</button></div>
-<div class="note">MuseTalk and Gradio are removed. Only <b>luna mouth closed.png</b> is used. Because there is only one mouth image, this creates audio-driven talking motion rather than true phoneme mouth shapes.</div>
-</aside>
-</main>
+<div class="engine"><b>Animation engine</b><div id="engineStatus">Checking FasterLivePortrait…</div><div class="small" style="margin-top:6px">Luna uses only <b>luna mouth closed.png</b>. FasterLivePortrait/JoyVASA drives the portrait from Luna's generated speech audio. No MuseTalk, ffmpeg.wasm, or browser MP4 generation is used.</div></div>
+</aside></main>
 <script>
-const $=id=>document.getElementById(id);
-let call=false,rec=null,busy=false,messages=[],ffmpeg=null,ffmpegLoading=null,videoUrl='',audioCtx=null;
-try{messages=JSON.parse(localStorage.getItem('lunaMessages')||'[]')}catch{}
-$('dg').value=localStorage.getItem('lunaDG')||'';
-function keys(){return{deepgramKey:$('dg').value.trim()}}
-$('saveKeys').onclick=()=>{localStorage.setItem('lunaDG',$('dg').value.trim());$('status').textContent='Key saved';$('caption').textContent='Luna is ready.'}
-function render(){const b=$('messages');b.innerHTML='';messages.slice(-60).forEach(m=>{const d=document.createElement('div');d.className='msg '+(m.role==='user'?'you':'lunaMsg');d.textContent=(m.role==='user'?'You: ':'Luna: ')+m.text;b.appendChild(d)});b.scrollTop=b.scrollHeight}
-function save(){localStorage.setItem('lunaMessages',JSON.stringify(messages.slice(-60)));render()}
-function resetVideo(){const v=$('video');v.pause();v.removeAttribute('src');v.load();v.style.display='none';v.classList.remove('talking');$('luna').style.display='block';if(videoUrl){URL.revokeObjectURL(videoUrl);videoUrl=''}}
+const $=id=>document.getElementById(id);let call=false,rec=null,busy=false,messages=[],videoUrl='';try{messages=JSON.parse(localStorage.getItem('lunaMessages')||'[]')}catch{}$('dg').value=localStorage.getItem('lunaDG')||'';
+function keys(){return{deepgramKey:$('dg').value.trim()}}$('saveKeys').onclick=()=>{localStorage.setItem('lunaDG',$('dg').value.trim());$('status').textContent='Key saved';};
+function render(){const b=$('messages');b.innerHTML='';messages.slice(-60).forEach(m=>{const d=document.createElement('div');d.className='msg '+(m.role==='user'?'you':'lunaMsg');d.textContent=(m.role==='user'?'You: ':'Luna: ')+m.text;b.appendChild(d)});b.scrollTop=b.scrollHeight}function save(){localStorage.setItem('lunaMessages',JSON.stringify(messages.slice(-60)));render()}
 function base64ToBlob(b64,type){const bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return new Blob([out],{type})}
-function blobToBase64(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(blob)})}
 async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({error:'Invalid backend response'}));if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j}
-async function loadFFmpeg(){
- if(ffmpeg)return ffmpeg;
- if(ffmpegLoading)return ffmpegLoading;
- ffmpegLoading=(async()=>{
-   $('status').textContent='Loading MP4 engine…';$('caption').textContent='First-time setup: loading ffmpeg.wasm (~31 MB)…';
-   const [{FFmpeg},{fetchFile,toBlobURL}]=await Promise.all([
-     import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js'),
-     import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js')
-   ]);
-   const f=new FFmpeg();
-   f.on('log',({message})=>console.log('[ffmpeg]',message));
-   const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-   await f.load({coreURL:await toBlobURL(base+'/ffmpeg-core.js','text/javascript'),wasmURL:await toBlobURL(base+'/ffmpeg-core.wasm','application/wasm')});
-   f.__fetchFile=fetchFile;ffmpeg=f;$('status').textContent='Ready';$('caption').textContent='Luna is ready.';return f;
- })();
- try{return await ffmpegLoading}finally{ffmpegLoading=null}
-}
-async function makeTalkingMp4(audioBlob){
- const f=await loadFFmpeg();
- if(!audioCtx)audioCtx=new AudioContext();
- await audioCtx.resume();
- const audio=new Audio();audio.preload='auto';audio.src=URL.createObjectURL(audioBlob);
- const source=audioCtx.createMediaElementSource(audio);
- const analyser=audioCtx.createAnalyser();analyser.fftSize=256;const gain=audioCtx.createGain();gain.gain.value=1;
- const dest=audioCtx.createMediaStreamDestination();source.connect(analyser);analyser.connect(gain);gain.connect(audioCtx.destination);gain.connect(dest);
- const img=$('luna');if(!img.complete)await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject});
- const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;const ctx=canvas.getContext('2d');const stream=canvas.captureStream(30);for(const track of dest.stream.getAudioTracks())stream.addTrack(track);
- const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(x=>MediaRecorder.isTypeSupported(x));
- if(!mime)throw new Error('Chrome does not support WebM video recording.');
- const chunks=[];const mr=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2500000});
- let raf=0;
- function draw(){const data=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(data);let sum=0;for(const n of data)sum+=n;const level=sum/(data.length*255);const pulse=1+level*.025;ctx.clearRect(0,0,512,512);ctx.save();ctx.translate(256,256);ctx.scale(pulse,pulse);ctx.translate(-256,-256);ctx.drawImage(img,0,0,512,512);ctx.restore();ctx.globalAlpha=.16+level*.3;ctx.shadowBlur=18+level*35;ctx.fillStyle='#d65caa';ctx.beginPath();ctx.arc(256,472,18+level*28,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;raf=requestAnimationFrame(draw)}
- draw();
- const done=new Promise((resolve,reject)=>{mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};mr.onerror=e=>reject(e.error||new Error('Browser video recorder failed.'));mr.onstop=()=>resolve(new Blob(chunks,{type:mime}))});
- audio.onended=()=>{try{mr.stop()}catch{}};mr.start();try{await audio.play()}catch(e){cancelAnimationFrame(raf);mr.stop();throw new Error('Chrome blocked audio playback. Click Speak/Make MP4 again to allow playback.')}const webm=await done;cancelAnimationFrame(raf);audio.pause();URL.revokeObjectURL(audio.src);source.disconnect();analyser.disconnect();gain.disconnect();dest.disconnect?.();stream.getTracks().forEach(t=>t.stop());
- $('status').textContent='Converting to MP4…';$('caption').textContent='JavaScript is converting the talking clip to MP4…';
- await f.writeFile('input.webm',await f.__fetchFile(webm));
- await f.exec(['-i','input.webm','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','output.mp4']);
- const data=await f.readFile('output.mp4');try{await f.deleteFile('input.webm');await f.deleteFile('output.mp4')}catch{}
- return new Blob([data.buffer],{type:'video/mp4'});
-}
-async function playMp4(blob){resetVideo();videoUrl=URL.createObjectURL(blob);const v=$('video');v.src=videoUrl;v.style.display='block';$('luna').style.display='none';v.classList.add('talking');$('status').textContent='Luna is speaking';$('caption').textContent='Luna is speaking…';await v.play();v.onended=()=>{resetVideo();$('status').textContent=call?'Listening':'Ready';$('caption').textContent=call?'Speak to Luna…':'Luna is ready.'}}
-async function speakBase64(b64){const audio=base64ToBlob(b64,'audio/mpeg');const mp4=await makeTalkingMp4(audio);await playMp4(mp4)}
-async function voiceTurn(blob){if(busy)return;busy=true;try{const k=keys();if(!k.deepgramKey)throw new Error('Enter and save your Deepgram API key first.');$('status').textContent='Transcribing…';$('caption').textContent='Sending one complete recording to Deepgram…';const j=await api('/voice-turn',{...k,audio_base64:await blobToBase64(blob),content_type:blob.type||'audio/webm'});if(!j.transcript)return;messages.push({role:'user',text:j.transcript},{role:'assistant',text:j.reply});save();await speakBase64(j.audio_base64)}catch(e){console.error(e);$('status').textContent='Error';$('caption').textContent=e.message}finally{busy=false;if(call){$('status').textContent='Listening';$('caption').textContent='Speak to Luna…'}}}
-function startRecorder(){if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){$('caption').textContent='Chrome microphone recording is unavailable.';return}navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{rec=new MediaRecorder(stream);const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});if(blob.size)await voiceTurn(blob);if(call&&!busy)startRecorder()};rec.start();$('status').textContent='Listening';$('caption').textContent='Speak to Luna…';setTimeout(()=>{if(call&&rec?.state==='recording')rec.stop()},4500)}).catch(e=>$('caption').textContent='Microphone: '+e.message)}
-$('call').onclick=()=>{if(call){call=false;$('call').textContent='☎ Start voice call';$('call').classList.remove('active');try{rec?.stop()}catch{}rec=null;$('status').textContent='Ready';$('caption').textContent='Call ended.'}else{call=true;$('call').textContent='■ End voice call';$('call').classList.add('active');startRecorder()}}
-$('send').onclick=async()=>{const t=$('text').value.trim();if(!t)return;$('text').value='';messages.push({role:'user',text:t});save();try{const k=keys();if(!k.deepgramKey)throw new Error('Enter and save your Deepgram API key first.');const j=await api('/reply',{...k,text:t});messages.push({role:'assistant',text:j.reply});save();await speakBase64(j.audio_base64)}catch(e){$('status').textContent='Error';$('caption').textContent=e.message}};
-$('text').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
-$('animate').onclick=async()=>{const f=$('mp3').files[0];if(!f)return $('caption').textContent='Choose an audio file first.';try{const mp4=await makeTalkingMp4(f);await playMp4(mp4)}catch(e){console.error(e);$('status').textContent='MP4 error';$('caption').textContent=e.message}};
-render();
-</script>
-</body>
-</html>
+async function showReply(j){if(!j.video_base64)throw new Error('FasterLivePortrait did not return an animation. Is its local engine running?');if(videoUrl)URL.revokeObjectURL(videoUrl);videoUrl=URL.createObjectURL(base64ToBlob(j.video_base64,'video/mp4'));const v=$('video');v.src=videoUrl;v.style.display='block';$('luna').style.display='none';v.classList.add('talking');$('status').textContent='Luna is speaking';$('caption').textContent='Luna is speaking…';try{await v.play()}catch{v.controls=true}v.onended=()=>{v.style.display='none';$('luna').style.display='block';$('status').textContent=call?'Listening':'Ready';$('caption').textContent=call?'Speak to Luna…':'Luna is ready.'}}
+async function voiceTurn(blob){if(busy)return;busy=true;try{const k=keys();if(!k.deepgramKey)throw new Error('Enter and save your Deepgram API key first.');$('status').textContent='Transcribing…';const j=await api('/voice-turn',{...k,audio_base64:await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(blob)}),content_type:blob.type||'audio/webm'});if(!j.transcript)return;messages.push({role:'user',text:j.transcript},{role:'assistant',text:j.reply});save();await showReply(j)}catch(e){console.error(e);$('status').textContent='Error';$('caption').textContent=e.message}finally{busy=false;if(call){$('status').textContent='Listening';$('caption').textContent='Speak to Luna…'}}}
+function startRecorder(){navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{rec=new MediaRecorder(stream);const chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});if(blob.size)await voiceTurn(blob);if(call&&!busy)startRecorder()};rec.start();$('status').textContent='Listening';$('caption').textContent='Speak to Luna…';setTimeout(()=>{if(call&&rec?.state==='recording')rec.stop()},4500)}).catch(e=>$('caption').textContent='Microphone: '+e.message)}
+$('call').onclick=()=>{if(call){call=false;$('call').textContent='☎ Start voice call';$('call').classList.remove('active');try{rec?.stop()}catch{}rec=null;$('status').textContent='Ready';$('caption').textContent='Call ended.'}else{call=true;$('call').textContent='■ End voice call';$('call').classList.add('active');startRecorder()}};
+$('send').onclick=async()=>{const t=$('text').value.trim();if(!t)return;$('text').value='';messages.push({role:'user',text:t});save();try{const j=await api('/reply',{...keys(),text:t});messages.push({role:'assistant',text:j.reply});save();await showReply(j)}catch(e){$('status').textContent='Error';$('caption').textContent=e.message}};$('text').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
+async function health(){try{const r=await fetch('/health');const j=await r.json();$('engineStatus').innerHTML=j.fasterLivePortrait?'<span class="ok">● FasterLivePortrait detected</span>':'<span class="bad">● FasterLivePortrait not detected at '+j.fasterLivePortraitUrl+'</span>'}catch{$('engineStatus').innerHTML='<span class="bad">● Luna backend unavailable</span>'}}render();health();
+</script></body></html>
