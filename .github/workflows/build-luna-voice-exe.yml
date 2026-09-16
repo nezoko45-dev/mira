@@ -14,10 +14,8 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Node 22
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -30,8 +28,7 @@ jobs:
         run: npx @yao-pkg/pkg@6.22.0 . --targets node22-win-x64 --output Luna-Backend.exe --compress Brotli
       - name: Verify EXE
         working-directory: luna-app
-        run: |
-          if (!(Test-Path 'Luna-Backend.exe')) { throw 'Luna-Backend.exe was not created.' }
+        run: if (!(Test-Path 'Luna-Backend.exe')) { throw 'Luna-Backend.exe was not created.' }
       - name: Assemble release
         shell: pwsh
         run: |
@@ -39,22 +36,11 @@ jobs:
           Copy-Item 'luna-app/Luna-Backend.exe' 'release/Luna-Backend.exe'
           Copy-Item 'luna-app/index.html' 'release/index.html'
           Copy-Item 'luna mouth closed.png' 'release/luna mouth closed.png'
-          Set-Content -Path 'release/README.txt' -Value @(
-            'LUNA VOICE APP'
-            ''
-            'Double-click Luna-Backend.exe. Chrome opens automatically.'
-            ''
-            'Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> MuseTalk 1.5 -> MP4 -> Chrome.'
-            ''
-            'Enter your Deepgram API key in Chrome. MuseTalk 1.5 is used through the public Hugging Face ZeroGPU Space; no Replicate token is required.'
-            ''
-            'Only luna mouth closed.png is used for Luna.'
-          )
+          Set-Content -Path 'release/README.txt' -Value @('LUNA VOICE APP','','Double-click Luna-Backend.exe. Chrome opens automatically.','','Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> MuseTalk 1.5 -> MP4 -> Chrome.','','Enter your Deepgram API key in Chrome. MuseTalk 1.5 is used through the public Hugging Face ZeroGPU Space; no Replicate token is required.','','Only luna mouth closed.png is used for Luna.')
       - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path 'release/*' -DestinationPath 'Luna-Voice-App.zip' -Force
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Luna-Voice-App
           path: Luna-Voice-App.zip
