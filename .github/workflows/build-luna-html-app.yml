@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,24 +36,13 @@ jobs:
           if ((Get-Item Wav2Lip/checkpoints/wav2lip.pth).Length -lt 300000000) { throw 'Wav2Lip checkpoint download is incomplete.' }
           if ((Get-Item Wav2Lip/face_detection/detection/sfd/s3fd.pth).Length -lt 70000000) { throw 'S3FD checkpoint download is incomplete.' }
 
-      - name: Patch Wav2Lip for modern librosa
-        shell: pwsh
-        run: |
-          $audio = 'Wav2Lip/audio.py'
-          $text = Get-Content $audio -Raw
-          $old = 'librosa.filters.mel(hp.sample_rate, hp.n_fft, n_mels=hp.num_mels, fmin=hp.fmin, fmax=hp.fmax)'
-          $new = 'librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels, fmin=hp.fmin, fmax=hp.fmax)'
-          if (!$text.Contains($old)) { throw 'Expected Wav2Lip librosa mel call was not found.' }
-          $text = $text.Replace($old, $new)
-          Set-Content -Path $audio -Value $text -Encoding UTF8
-          Select-String -Path $audio -Pattern 'filters.mel' -Context 0,0
-
-      - name: Install Wav2Lip runtime dependencies
+      - name: Install compatible Wav2Lip runtime
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install numpy==1.26.4 scipy<1.14 librosa==0.10.2 numba==0.59.1 opencv-python tqdm ffmpeg-python pyinstaller
+          python -m pip install numpy==1.26.4 scipy==1.13.1 librosa==0.9.2 numba==0.59.1 opencv-python tqdm ffmpeg-python pyinstaller
+          python -c "import librosa; import numpy; print('librosa', librosa.__version__); print(librosa.filters.mel(16000, 800, n_mels=80, fmin=55, fmax=7600).shape)"
 
       - name: Assemble runtime
         shell: pwsh
@@ -67,6 +56,9 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --onedir --name Wav2LipRunner `
             --paths Wav2Lip `
+            --hidden-import audio `
+            --hidden-import models `
+            --hidden-import face_detection `
             --collect-submodules face_detection `
             --collect-submodules torch `
             --collect-submodules torchvision `
@@ -75,6 +67,8 @@ jobs:
             Wav2Lip/inference.py
           Copy-Item -Recurse dist/Wav2LipRunner build/luna/Wav2LipRunner
           if (!(Test-Path build/luna/Wav2LipRunner/Wav2LipRunner.exe)) { throw 'Wav2LipRunner.exe missing' }
+          & build/luna/Wav2LipRunner/Wav2LipRunner.exe --help
+          if ($LASTEXITCODE -ne 0) { throw 'Wav2LipRunner executable failed its startup/import check.' }
 
       - name: Build Luna backend EXE
         shell: pwsh
