@@ -1,15 +1,17 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { exec } from 'node:child_process';
+import { Client, handle_file } from '@gradio/client';
 
 const PORT = Number(process.env.LUNA_PORT || 8787);
-const ROOT = process.pkg ? path.dirname(process.execPath) : path.resolve(__dirname, '..');
+const ROOT = process.pkg ? path.dirname(process.execPath) : path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const APP = path.join(ROOT, 'luna-app');
 const IMAGE = path.join(ROOT, 'luna mouth closed.png');
 const MAX_BODY = 12 * 1024 * 1024;
-const WAV2LIP_VERSION = '22b1ecf6252b8adcaeadde30bb672b199c125b7d3c98607db70b66eea21d75ae';
-const IMAGE_URL = 'https://raw.githubusercontent.com/nezoko45-dev/mira/main/luna%20mouth%20closed.png';
+const MUSETALK_SPACE = 'henrybit/musetalk-1-5';
+let museTalkClientPromise = null;
 
 function send(res, code, type, body) {
   const data = Buffer.isBuffer(body) ? body : Buffer.from(body);
@@ -45,57 +47,60 @@ function lunaReply(text) {
   return `I heard you say, “${t.slice(0,180)}”. I am listening. Tell me more.`;
 }
 
-function outputUrl(output) {
-  if(typeof output === 'string') return output;
-  if(output && typeof output === 'object') {
-    if(typeof output.url === 'string') return output.url;
-    if(typeof output.href === 'string') return output.href;
+function findVideoUrl(value, seen = new Set()) {
+  if(value == null) return '';
+  if(typeof value === 'string') return /\.mp4($|\?)/i.test(value) || value.includes('/file=') || value.includes('/gradio_api/file=') ? value : '';
+  if(typeof value !== 'object') return '';
+  if(seen.has(value)) return '';
+  seen.add(value);
+  for(const k of ['url','video','path','file','value','href']) {
+    if(value[k]) { const found = findVideoUrl(value[k], seen); if(found) return found; }
   }
+  if(Array.isArray(value)) for(const item of value) { const found = findVideoUrl(item, seen); if(found) return found; }
   return '';
 }
 
-async function wav2lip(audio, token) {
-  if(audio.length > 1024 * 1024) throw new Error('The MP3 is over 1 MB. Shorten the reply and try again.');
-  const audioData = 'data:audio/mpeg;base64,' + audio.toString('base64');
-  const create = await fetch('https://api.replicate.com/v1/predictions', {
-    method:'POST',
-    headers:{'Authorization':'Bearer '+token, 'Content-Type':'application/json', 'Prefer':'wait=60'},
-    body:JSON.stringify({
-      version:WAV2LIP_VERSION,
-      input:{face:IMAGE_URL,audio:audioData,pads:'0 10 0 0',smooth:true,fps:25,out_height:480}
-    })
-  });
-  const createText = await create.text();
-  if(!create.ok) throw new Error('Wav2Lip '+create.status+': '+createText.slice(0,900));
-  let prediction;
-  try { prediction=JSON.parse(createText); } catch { throw new Error('Wav2Lip returned invalid JSON.'); }
-
-  for(let attempt=0; attempt<36; attempt++) {
-    const status = prediction?.status;
-    if(status === 'succeeded') {
-      const out = outputUrl(prediction.output);
-      if(out) return out;
-      throw new Error('Wav2Lip finished but returned no MP4 URL.');
-    }
-    if(status === 'failed' || status === 'canceled') {
-      throw new Error('Wav2Lip '+status+': '+String(prediction?.error || 'unknown error').slice(0,900));
-    }
-    const pollUrl = prediction?.urls?.get;
-    if(!pollUrl) throw new Error('Wav2Lip did not provide a prediction status URL.');
-    await new Promise(r=>setTimeout(r,5000));
-    const poll = await fetch(pollUrl, {headers:{'Authorization':'Bearer '+token}});
-    const pollText = await poll.text();
-    if(!poll.ok) throw new Error('Wav2Lip status '+poll.status+': '+pollText.slice(0,900));
-    try { prediction=JSON.parse(pollText); } catch { throw new Error('Wav2Lip status returned invalid JSON.'); }
+async function getMuseTalkClient() {
+  if(!museTalkClientPromise) {
+    museTalkClientPromise = Client.connect(MUSETALK_SPACE, {
+      status_callback: status => console.log('[MuseTalk]', status?.status || status?.detail || status)
+    });
   }
-  throw new Error('Wav2Lip is still processing after 3 minutes. Try a shorter sentence.');
+  return museTalkClientPromise;
+}
+
+async function museTalk(audio) {
+  if(audio.length > 8 * 1024 * 1024) throw new Error('The MP3 is over 8 MB. Use a shorter reply.');
+  if(!fs.existsSync(IMAGE)) throw new Error('luna mouth closed.png is missing from the app folder.');
+
+  const tempAudio = path.join(os.tmpdir(), `luna-${Date.now()}-${Math.random().toString(16).slice(2)}.mp3`);
+  fs.writeFileSync(tempAudio, audio);
+  try {
+    const app = await getMuseTalkClient();
+    console.log('[MuseTalk] sending Luna image + Deepgram MP3');
+    const result = await app.predict('/generate', [
+      handle_file(tempAudio),
+      handle_file(IMAGE),
+      0,
+      10,
+      'jaw',
+      90,
+      90
+    ]);
+    console.log('[MuseTalk] result:', JSON.stringify(result).slice(0, 4000));
+    const videoUrl = findVideoUrl(result?.data ?? result);
+    if(!videoUrl) throw new Error('MuseTalk finished but returned no MP4 URL.');
+    return videoUrl;
+  } finally {
+    try { fs.unlinkSync(tempAudio); } catch {}
+  }
 }
 
 async function handle(req,res) {
   try {
     const url = new URL(req.url, 'http://127.0.0.1:'+PORT);
     if(req.method === 'OPTIONS') return send(res,204,'text/plain','');
-    if(req.method === 'GET' && url.pathname === '/health') return json(res,200,{ok:true,deepgram:true,wav2lip:true,image:fs.existsSync(IMAGE),version:WAV2LIP_VERSION});
+    if(req.method === 'GET' && url.pathname === '/health') return json(res,200,{ok:true,deepgram:true,musetalk:true,image:fs.existsSync(IMAGE),model:MUSETALK_SPACE});
     if(req.method === 'GET' && (url.pathname==='/' || url.pathname==='/index.html')) { const f=path.join(APP,'index.html'); return fs.existsSync(f)?send(res,200,'text/html; charset=utf-8',fs.readFileSync(f)):json(res,404,{error:'index.html missing'}); }
     if(req.method === 'GET' && url.pathname === '/luna.png') return fs.existsSync(IMAGE)?send(res,200,'image/png',fs.readFileSync(IMAGE)):json(res,404,{error:'luna mouth closed.png missing'});
     if(req.method === 'POST' && url.pathname === '/stt') {
@@ -109,16 +114,21 @@ async function handle(req,res) {
       const mp3=await deepgramTTS(String(body.text||''),dg); return json(res,200,{audio_base64:mp3.toString('base64')});
     }
     if(req.method === 'POST' && url.pathname === '/animate') {
-      const body=JSON.parse((await readBody(req)).toString('utf8')); const token=key(body,'replicateToken','REPLICATE_API_TOKEN'); if(!token) throw new Error('Add your Replicate token in the app.');
+      const body=JSON.parse((await readBody(req)).toString('utf8'));
       const audio=Buffer.from(String(body.audio_base64||''),'base64'); if(!audio.length) throw new Error('No MP3 supplied.');
-      const video_url=await wav2lip(audio,token); return json(res,200,{video_url});
+      const video_url=await museTalk(audio); return json(res,200,{video_url});
+    }
+    if(req.method === 'POST' && url.pathname === '/reply') {
+      const body=JSON.parse((await readBody(req)).toString('utf8')); const dg=key(body,'deepgramKey','DEEPGRAM_API_KEY'); if(!dg) throw new Error('Add your Deepgram API key in the app.');
+      const reply=lunaReply(String(body.text||'')); const mp3=await deepgramTTS(reply,dg); const video_url=await museTalk(mp3);
+      return json(res,200,{reply,audio_base64:mp3.toString('base64'),video_url});
     }
     if(req.method === 'POST' && url.pathname === '/voice-turn') {
       const body=JSON.parse((await readBody(req)).toString('utf8'));
-      const dg=key(body,'deepgramKey','DEEPGRAM_API_KEY'); const rep=key(body,'replicateToken','REPLICATE_API_TOKEN'); if(!dg||!rep) throw new Error('Add both Deepgram and Replicate credentials in the app.');
+      const dg=key(body,'deepgramKey','DEEPGRAM_API_KEY'); if(!dg) throw new Error('Add your Deepgram API key in the app.');
       const audio=Buffer.from(String(body.audio_base64||''),'base64'); if(!audio.length) throw new Error('No microphone audio received.');
       const transcript=await deepgramSTT(audio,body.content_type||'audio/webm',dg); if(!transcript) return json(res,200,{transcript:'',reply:'',audio_base64:'',video_url:''});
-      const reply=lunaReply(transcript); const mp3=await deepgramTTS(reply,dg); const video_url=await wav2lip(mp3,rep);
+      const reply=lunaReply(transcript); const mp3=await deepgramTTS(reply,dg); const video_url=await museTalk(mp3);
       return json(res,200,{transcript,reply,audio_base64:mp3.toString('base64'),video_url});
     }
     return json(res,404,{error:'Not found'});
