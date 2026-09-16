@@ -36,6 +36,18 @@ jobs:
           if ((Get-Item Wav2Lip/checkpoints/wav2lip.pth).Length -lt 300000000) { throw 'Wav2Lip checkpoint download is incomplete.' }
           if ((Get-Item Wav2Lip/face_detection/detection/sfd/s3fd.pth).Length -lt 70000000) { throw 'S3FD checkpoint download is incomplete.' }
 
+      - name: Patch Wav2Lip for modern librosa
+        shell: pwsh
+        run: |
+          $audio = 'Wav2Lip/audio.py'
+          $text = Get-Content $audio -Raw
+          $old = 'librosa.filters.mel(hp.sample_rate, hp.n_fft, n_mels=hp.num_mels, fmin=hp.fmin, fmax=hp.fmax)'
+          $new = 'librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels, fmin=hp.fmin, fmax=hp.fmax)'
+          if (!$text.Contains($old)) { throw 'Expected Wav2Lip librosa mel call was not found.' }
+          $text = $text.Replace($old, $new)
+          Set-Content -Path $audio -Value $text -Encoding UTF8
+          Select-String -Path $audio -Pattern 'filters.mel' -Context 0,0
+
       - name: Install Wav2Lip runtime dependencies
         shell: pwsh
         run: |
