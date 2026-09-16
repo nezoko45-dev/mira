@@ -43,9 +43,10 @@ jobs:
           if (!(Test-Path 'Luna-Backend.exe')) { throw 'Luna-Backend.exe was not created.' }
           Get-Item 'Luna-Backend.exe' | Select-Object Name,Length
 
-      - name: Assemble release
+      - name: Assemble release folder
         shell: pwsh
         run: |
+          Remove-Item -Recurse -Force release -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path release/luna-app | Out-Null
           Copy-Item 'luna-app/Luna-Backend.exe' 'release/Luna-Backend.exe'
           Copy-Item 'luna-app/index.html' 'release/luna-app/index.html'
@@ -62,13 +63,10 @@ jobs:
             'Only luna mouth closed.png is used for Luna.'
           )
 
-      - name: Create ZIP
-        shell: pwsh
-        run: Compress-Archive -Path 'release/*' -DestinationPath 'Luna-Voice-App.zip' -Force
-
-      - name: Upload artifact
+      - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: Luna-Voice-App
-          path: Luna-Voice-App.zip
+          path: release
           if-no-files-found: error
+          include-hidden-files: false
