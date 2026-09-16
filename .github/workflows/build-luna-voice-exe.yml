@@ -37,7 +37,7 @@ jobs:
           Copy-Item luna-app/Luna-Backend.exe release/Luna-Backend.exe
           Copy-Item luna-app/index.html release/index.html
           Copy-Item 'luna mouth closed.png' 'release/luna mouth closed.png'
-          Set-Content release/README.txt @('LUNA VOICE APP - FASTER LIVEPORTRAIT','','Double-click Luna-Backend.exe. Chrome opens automatically.','','Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> FasterLivePortrait/JoyVASA audio-driven portrait -> Chrome.','','FasterLivePortrait must be running locally at http://127.0.0.1:9870. Use the official Windows all-in-one FasterLivePortrait package with its audio-driven/JoyVASA support.','','Enter your Deepgram API key in Chrome.','','No MuseTalk. No ffmpeg.wasm. No browser-side MP4 generation. Only luna mouth closed.png is used as the Luna source portrait.')
+          Set-Content release/README.txt @('LUNA VOICE APP - FASTER LIVEPORTRAIT','','1. Start the official FasterLivePortrait Windows all-in-one package and enable its API on http://127.0.0.1:9871.','','2. Double-click Luna-Backend.exe. Chrome opens automatically at http://127.0.0.1:8787.','','3. Enter and save your Deepgram API key.','','Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 TTS -> FasterLivePortrait/JoyVASA -> Chrome.','','No MuseTalk. No ffmpeg.wasm. No browser MP4 generation. Only luna mouth closed.png is used as the Luna source portrait.')
       - name: Create ZIP
         shell: pwsh
         run: Compress-Archive -Path release/* -DestinationPath Luna-Voice-App.zip -Force
