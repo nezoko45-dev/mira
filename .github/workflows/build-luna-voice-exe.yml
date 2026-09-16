@@ -16,40 +16,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: luna-app/package.json
-
-      - name: Verify Node and npm
-        run: |
-          node --version
-          npm --version
-
       - name: Install dependencies
         working-directory: luna-app
         run: npm install --no-audit --no-fund
-
       - name: Build Windows EXE
         working-directory: luna-app
         run: npx @yao-pkg/pkg@6.22.0 . --targets node22-win-x64 --output Luna-Backend.exe --compress Brotli
-
       - name: Verify EXE
         working-directory: luna-app
         run: |
           if (!(Test-Path 'Luna-Backend.exe')) { throw 'Luna-Backend.exe was not created.' }
-          Get-Item 'Luna-Backend.exe' | Select-Object Name,Length
-
-      - name: Assemble release folder
+      - name: Assemble release
         shell: pwsh
         run: |
-          Remove-Item -Recurse -Force release -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path release/luna-app | Out-Null
+          New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item 'luna-app/Luna-Backend.exe' 'release/Luna-Backend.exe'
-          Copy-Item 'luna-app/index.html' 'release/luna-app/index.html'
+          Copy-Item 'luna-app/index.html' 'release/index.html'
           Copy-Item 'luna mouth closed.png' 'release/luna mouth closed.png'
           Set-Content -Path 'release/README.txt' -Value @(
             'LUNA VOICE APP'
@@ -62,11 +50,12 @@ jobs:
             ''
             'Only luna mouth closed.png is used for Luna.'
           )
-
-      - name: Upload release artifact
+      - name: Create ZIP
+        shell: pwsh
+        run: Compress-Archive -Path 'release/*' -DestinationPath 'Luna-Voice-App.zip' -Force
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Luna-Voice-App
-          path: release
+          path: Luna-Voice-App.zip
           if-no-files-found: error
-          include-hidden-files: false
