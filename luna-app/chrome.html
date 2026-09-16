@@ -20,20 +20,41 @@ input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #5433
 </head>
 <body>
 <section id="stage" class="stage"><div id="lunaWrap" class="luna-wrap"><canvas id="canvas" aria-label="Animated Luna"></canvas></div></section>
-<aside><h1>Luna</h1><p>Chrome-only Luna. Her single image is animated directly on a canvas.</p><div id="messages" class="messages"></div><input id="text" autocomplete="off" placeholder="Talk to Luna"><button id="send">Speak</button><button id="call">Start voice call</button><div id="status" class="status">Loading Luna…</div></aside>
+<aside><h1>Luna</h1><p>Chrome-only Luna. Her single image is animated directly on a canvas.</p><div id="messages" class="messages"></div><input id="text" autocomplete="off" placeholder="Talk to Luna"><button id="send">Speak</button><button id="call">Start voice call</button><div id="status" class="status">Finding Luna image…</div></aside>
 <script>
 const $=id=>document.getElementById(id);const canvas=$('canvas'),ctx=canvas.getContext('2d');
 let img=new Image(),source=null,chat=JSON.parse(localStorage.getItem('lunaChat')||'[]'),call=false,rec=null,blinkTimer=null,animId=0,speaking=false,talkPhase=0;
-// Mouth region is normalized so it works with different image resolutions. Adjust these four values if the mouth is positioned differently in the PNG.
+// Mouth region is normalized so it works with different image resolutions.
 const MOUTH={x:.50,y:.66,w:.22,h:.095};
-img.onload=()=>{source=img;canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;drawFrame(0);$('status').textContent='Ready';startBlinkLoop()};
-img.onerror=()=>{$('status').textContent='Could not load luna mouth closed.png'};
-img.src='../luna mouth closed.png';
+
+// Find the exact "luna mouth closed.png" image in the common repo locations.
+const IMAGE_CANDIDATES=[
+  '../luna mouth closed.png',
+  './luna mouth closed.png',
+  '../luna-app/luna mouth closed.png',
+  'https://raw.githubusercontent.com/nezoko45-dev/mira/main/luna%20mouth%20closed.png',
+  'https://raw.githubusercontent.com/nezoko45-dev/mira/main/luna-app/luna%20mouth%20closed.png'
+];
+let imageIndex=0;
+function findLunaImage(){
+  if(imageIndex>=IMAGE_CANDIDATES.length){
+    $('status').textContent='Could not find luna mouth closed.png';
+    return;
+  }
+  const candidate=IMAGE_CANDIDATES[imageIndex++];
+  const test=new Image();
+  test.onload=()=>{
+    img=test;source=test;canvas.width=test.naturalWidth;canvas.height=test.naturalHeight;
+    drawFrame(0);$('status').textContent='Luna ready';startBlinkLoop();
+  };
+  test.onerror=()=>findLunaImage();
+  test.src=candidate;
+}
+findLunaImage();
 
 function drawFrame(open){
  if(!source||!canvas.width)return;
  const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.drawImage(source,0,0,w,h);
- // Pixel manipulation: copy the mouth strip, vertically expand/compress it, then blend it back.
  const mx=Math.max(0,Math.floor(w*(MOUTH.x-MOUTH.w/2))),my=Math.max(0,Math.floor(h*(MOUTH.y-MOUTH.h/2)));
  const mw=Math.min(w-mx,Math.floor(w*MOUTH.w)),mh=Math.min(h-my,Math.floor(h*MOUTH.h));
  if(mw<4||mh<4)return;
@@ -42,8 +63,7 @@ function drawFrame(open){
  const tmp=document.createElement('canvas');tmp.width=mw;tmp.height=sh;const tc=tmp.getContext('2d');tc.putImageData(pixels,0,0);
  const amount=Math.max(0,Math.min(1,open));
  const destH=Math.max(2,Math.round(sh*(1+amount*.34)));const destY=sy-(destH-sh)/2;
- ctx.save();ctx.globalCompositeOperation='source-over';ctx.drawImage(tmp,0,0,mw,sh,mx,destY,mw,destH);ctx.restore();
- // A tiny dark inner-mouth pixel band makes the opening readable without adding another Luna image.
+ ctx.save();ctx.drawImage(tmp,0,0,mw,sh,mx,destY,mw,destH);ctx.restore();
  if(amount>.08){
    const bandH=Math.max(1,Math.round(mh*(.07+.09*amount)));const by=Math.round(my+mh*.38-bandH/2);
    ctx.save();ctx.globalAlpha=.28+.28*amount;ctx.fillStyle='#160b12';ctx.fillRect(mx+Math.round(mw*.12),by,Math.round(mw*.76),bandH);ctx.restore();
@@ -54,7 +74,7 @@ function animateMouth(){
  talkPhase+=.22;const open=.5+.5*Math.sin(talkPhase);drawFrame(open);animId=requestAnimationFrame(animateMouth);
 }
 function setSpeaking(on){speaking=on;$('lunaWrap').classList.toggle('speaking',on);$('status').textContent=on?'Luna is speaking…':(call?'Listening…':'Ready');if(on&&!animId){talkPhase=0;animId=requestAnimationFrame(animateMouth)}}
-function draw(){ $('messages').innerHTML=chat.map(x=>`<div class="msg ${x.u?'you':''}"><b>${x.u?'You':'Luna'}:</b> ${escapeHtml(x.t)}</div>`).join('');$('messages').scrollTop=$('messages').scrollHeight }
+function draw(){$('messages').innerHTML=chat.map(x=>`<div class="msg ${x.u?'you':''}"><b>${x.u?'You':'Luna'}:</b> ${escapeHtml(x.t)}</div>`).join('');$('messages').scrollTop=$('messages').scrollHeight}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function startBlinkLoop(){clearTimeout(blinkTimer);blinkTimer=setTimeout(()=>{if(!speaking){$('lunaWrap').classList.add('blink');setTimeout(()=>$('lunaWrap').classList.remove('blink'),140)}startBlinkLoop()},3500+Math.random()*3500)}
 function reply(t){t=t.trim();if(!t)return;chat.push({u:1,t});let r=/^(hi|hello|hey)\b/i.test(t)?'Mhm… hello. I was waiting for you.':/how are you/i.test(t)?'I am doing nicely now that you are talking to me.':/love|miss you/i.test(t)?'Stay with me a little longer.':/bye|goodbye/i.test(t)?'Come back when you want to talk again.':'I heard you. Tell me more about that.';chat.push({t:r});localStorage.setItem('lunaChat',JSON.stringify(chat.slice(-60)));draw();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(r);u.rate=.95;u.pitch=1.05;u.onstart=()=>setSpeaking(true);u.onend=()=>{setSpeaking(false);if(call)setTimeout(listen,300)};u.onerror=()=>setSpeaking(false);speechSynthesis.speak(u)}
