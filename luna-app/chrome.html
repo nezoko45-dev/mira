@@ -6,116 +6,62 @@
 <title>Luna - Chrome Only</title>
 <style>
 :root{--bg:#09070b;--panel:#130d16;--card:#20131d;--accent:#b34e8c}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:#fff;font:16px system-ui,sans-serif;display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:100vh}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font:16px system-ui,sans-serif;display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:100vh}
 .stage{position:relative;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 42%,#3a1b36 0,#09070b 70%)}
-.luna-wrap{position:relative;width:min(85vw,760px);height:min(88vh,900px);display:grid;place-items:center;will-change:transform}
-#luna{display:block;max-width:100%;max-height:100%;width:auto;height:auto;border-radius:18px;user-select:none;-webkit-user-drag:none;will-change:transform,filter}
-/* Lightweight talking animation. It never creates an MP4 or starts a backend. */
-.luna-wrap.speaking #luna{animation:lunaTalk .34s ease-in-out infinite alternate;filter:drop-shadow(0 0 18px rgba(214,92,170,.55))}
-.luna-wrap.blink #luna{animation:lunaBlink .12s ease-out}
-@keyframes lunaTalk{0%{transform:translateY(0) scale(1) rotate(-.12deg);filter:drop-shadow(0 0 12px rgba(214,92,170,.25))}50%{transform:translateY(-2px) scale(1.012) rotate(.12deg);filter:drop-shadow(0 0 24px rgba(214,92,170,.5))}100%{transform:translateY(1px) scale(1.006) rotate(0);filter:drop-shadow(0 0 16px rgba(214,92,170,.32))}}
-@keyframes lunaBlink{0%{transform:scaleY(1)}50%{transform:scaleY(.997)}100%{transform:scaleY(1)}}
-aside{padding:20px;background:var(--panel);border-left:1px solid #2a1928;display:flex;flex-direction:column;min-height:100vh}
-h1{margin-top:0}
-.messages{height:60vh;overflow:auto;padding-right:4px}
-.msg{padding:10px;margin:8px 0;border-radius:12px;background:var(--card);line-height:1.4}.you{background:#30202b}
-input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #54334e;margin-top:8px}
-input{width:100%;background:#09070b;color:#fff;outline:none}button{background:var(--accent);color:#fff;font-weight:700;cursor:pointer}button:active{transform:translateY(1px)}
-.status{margin-top:12px;opacity:.8}
+.luna-wrap{position:relative;width:min(85vw,760px);height:min(88vh,900px);display:grid;place-items:center}
+#canvas{display:block;max-width:100%;max-height:100%;width:auto;height:auto;border-radius:18px;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 0 8px rgba(214,92,170,.12));will-change:transform,filter}
+.luna-wrap.speaking #canvas{filter:drop-shadow(0 0 22px rgba(214,92,170,.45))}
+.luna-wrap.blink #canvas{transform:scaleY(.997)}
+aside{padding:20px;background:var(--panel);border-left:1px solid #2a1928;display:flex;flex-direction:column;min-height:100vh}h1{margin-top:0}
+.messages{height:60vh;overflow:auto;padding-right:4px}.msg{padding:10px;margin:8px 0;border-radius:12px;background:var(--card);line-height:1.4}.you{background:#30202b}
+input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #54334e;margin-top:8px}input{width:100%;background:#09070b;color:#fff;outline:none}button{background:var(--accent);color:#fff;font-weight:700;cursor:pointer}.status{margin-top:12px;opacity:.8}
 @media(max-width:760px){body{grid-template-columns:1fr}.stage{min-height:65vh}aside{min-height:auto;border-left:0;border-top:1px solid #2a1928}.messages{height:28vh}.luna-wrap{width:94vw;height:62vh}}
 </style>
 </head>
 <body>
-<section id="stage" class="stage">
-  <div id="lunaWrap" class="luna-wrap">
-    <img id="luna" src="../luna mouth closed.png" alt="Luna">
-  </div>
-</section>
-<aside>
-  <h1>Luna</h1>
-  <p>Chrome-only Luna. The animation runs directly in the browser.</p>
-  <div id="messages" class="messages"></div>
-  <input id="text" autocomplete="off" placeholder="Talk to Luna">
-  <button id="send">Speak</button>
-  <button id="call">Start voice call</button>
-  <div id="status" class="status">Ready</div>
-</aside>
+<section id="stage" class="stage"><div id="lunaWrap" class="luna-wrap"><canvas id="canvas" aria-label="Animated Luna"></canvas></div></section>
+<aside><h1>Luna</h1><p>Chrome-only Luna. Her single image is animated directly on a canvas.</p><div id="messages" class="messages"></div><input id="text" autocomplete="off" placeholder="Talk to Luna"><button id="send">Speak</button><button id="call">Start voice call</button><div id="status" class="status">Loading Luna…</div></aside>
 <script>
-const $=id=>document.getElementById(id);
-let chat=JSON.parse(localStorage.getItem('lunaChat')||'[]');
-let call=false,rec=null,blinkTimer=null;
+const $=id=>document.getElementById(id);const canvas=$('canvas'),ctx=canvas.getContext('2d');
+let img=new Image(),source=null,chat=JSON.parse(localStorage.getItem('lunaChat')||'[]'),call=false,rec=null,blinkTimer=null,animId=0,speaking=false,talkPhase=0;
+// Mouth region is normalized so it works with different image resolutions. Adjust these four values if the mouth is positioned differently in the PNG.
+const MOUTH={x:.50,y:.66,w:.22,h:.095};
+img.onload=()=>{source=img;canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;drawFrame(0);$('status').textContent='Ready';startBlinkLoop()};
+img.onerror=()=>{$('status').textContent='Could not load luna mouth closed.png'};
+img.src='../luna mouth closed.png';
 
-function draw(){
-  $('messages').innerHTML=chat.map(x=>`<div class="msg ${x.u?'you':''}"><b>${x.u?'You':'Luna'}:</b> ${escapeHtml(x.t)}</div>`).join('');
-  $('messages').scrollTop=$('messages').scrollHeight;
+function drawFrame(open){
+ if(!source||!canvas.width)return;
+ const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.drawImage(source,0,0,w,h);
+ // Pixel manipulation: copy the mouth strip, vertically expand/compress it, then blend it back.
+ const mx=Math.max(0,Math.floor(w*(MOUTH.x-MOUTH.w/2))),my=Math.max(0,Math.floor(h*(MOUTH.y-MOUTH.h/2)));
+ const mw=Math.min(w-mx,Math.floor(w*MOUTH.w)),mh=Math.min(h-my,Math.floor(h*MOUTH.h));
+ if(mw<4||mh<4)return;
+ const pad=Math.max(2,Math.floor(mh*.45));const sy=Math.max(0,my-pad),sh=Math.min(h-sy,mh+pad*2);
+ const pixels=ctx.getImageData(mx,sy,mw,sh);
+ const tmp=document.createElement('canvas');tmp.width=mw;tmp.height=sh;const tc=tmp.getContext('2d');tc.putImageData(pixels,0,0);
+ const amount=Math.max(0,Math.min(1,open));
+ const destH=Math.max(2,Math.round(sh*(1+amount*.34)));const destY=sy-(destH-sh)/2;
+ ctx.save();ctx.globalCompositeOperation='source-over';ctx.drawImage(tmp,0,0,mw,sh,mx,destY,mw,destH);ctx.restore();
+ // A tiny dark inner-mouth pixel band makes the opening readable without adding another Luna image.
+ if(amount>.08){
+   const bandH=Math.max(1,Math.round(mh*(.07+.09*amount)));const by=Math.round(my+mh*.38-bandH/2);
+   ctx.save();ctx.globalAlpha=.28+.28*amount;ctx.fillStyle='#160b12';ctx.fillRect(mx+Math.round(mw*.12),by,Math.round(mw*.76),bandH);ctx.restore();
+ }
 }
-function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-
-function startBlinkLoop(){
-  clearTimeout(blinkTimer);
-  const wait=3500+Math.random()*3500;
-  blinkTimer=setTimeout(()=>{
-    if(!$('lunaWrap').classList.contains('speaking')){
-      $('lunaWrap').classList.add('blink');
-      setTimeout(()=>$('lunaWrap').classList.remove('blink'),140);
-    }
-    startBlinkLoop();
-  },wait);
+function animateMouth(){
+ if(!speaking){animId=0;drawFrame(0);return}
+ talkPhase+=.22;const open=.5+.5*Math.sin(talkPhase);drawFrame(open);animId=requestAnimationFrame(animateMouth);
 }
-
-function setSpeaking(on){
-  $('lunaWrap').classList.toggle('speaking',on);
-  $('status').textContent=on?'Luna is speaking…':(call?'Listening…':'Ready');
-}
-
-function reply(t){
-  t=t.trim();if(!t)return;
-  chat.push({u:1,t});
-  let r=/^(hi|hello|hey)\b/i.test(t)?'Mhm… hello. I was waiting for you.':
-    /how are you/i.test(t)?'I am doing nicely now that you are talking to me.':
-    /love|miss you/i.test(t)?'Stay with me a little longer.':
-    /bye|goodbye/i.test(t)?'Come back when you want to talk again.':
-    'I heard you. Tell me more about that.';
-  chat.push({t:r});
-  localStorage.setItem('lunaChat',JSON.stringify(chat.slice(-60)));
-  draw();
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(r);
-  u.rate=.95;u.pitch=1.05;
-  u.onstart=()=>setSpeaking(true);
-  u.onend=()=>{setSpeaking(false);if(call)setTimeout(listen,300)};
-  u.onerror=()=>setSpeaking(false);
-  speechSynthesis.speak(u);
-}
-
-$('send').onclick=()=>{const t=$('text').value;$('text').value='';reply(t)};
-$('text').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
-
-function listen(){
-  if(!call)return;
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){$('status').textContent='Chrome speech recognition is unavailable';return}
-  if(rec)return;
-  rec=new SR();rec.lang='en-US';rec.continuous=false;rec.interimResults=false;
-  rec.onstart=()=>$('status').textContent='Listening…';
-  rec.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||'';rec=null;reply(text)};
-  rec.onend=()=>{rec=null;if(call&&!speechSynthesis.speaking)setTimeout(listen,500)};
-  rec.onerror=()=>{rec=null;if(call)setTimeout(listen,900)};
-  try{rec.start()}catch{rec=null;if(call)setTimeout(listen,900)}
-}
-
-$('call').onclick=()=>{
-  call=!call;
-  $('call').textContent=call?'End voice call':'Start voice call';
-  if(call)listen();
-  else{
-    try{rec?.stop()}catch{}
-    rec=null;speechSynthesis.cancel();setSpeaking(false);$('status').textContent='Ready';
-  }
-};
-
-draw();startBlinkLoop();
+function setSpeaking(on){speaking=on;$('lunaWrap').classList.toggle('speaking',on);$('status').textContent=on?'Luna is speaking…':(call?'Listening…':'Ready');if(on&&!animId){talkPhase=0;animId=requestAnimationFrame(animateMouth)}}
+function draw(){ $('messages').innerHTML=chat.map(x=>`<div class="msg ${x.u?'you':''}"><b>${x.u?'You':'Luna'}:</b> ${escapeHtml(x.t)}</div>`).join('');$('messages').scrollTop=$('messages').scrollHeight }
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function startBlinkLoop(){clearTimeout(blinkTimer);blinkTimer=setTimeout(()=>{if(!speaking){$('lunaWrap').classList.add('blink');setTimeout(()=>$('lunaWrap').classList.remove('blink'),140)}startBlinkLoop()},3500+Math.random()*3500)}
+function reply(t){t=t.trim();if(!t)return;chat.push({u:1,t});let r=/^(hi|hello|hey)\b/i.test(t)?'Mhm… hello. I was waiting for you.':/how are you/i.test(t)?'I am doing nicely now that you are talking to me.':/love|miss you/i.test(t)?'Stay with me a little longer.':/bye|goodbye/i.test(t)?'Come back when you want to talk again.':'I heard you. Tell me more about that.';chat.push({t:r});localStorage.setItem('lunaChat',JSON.stringify(chat.slice(-60)));draw();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(r);u.rate=.95;u.pitch=1.05;u.onstart=()=>setSpeaking(true);u.onend=()=>{setSpeaking(false);if(call)setTimeout(listen,300)};u.onerror=()=>setSpeaking(false);speechSynthesis.speak(u)}
+$('send').onclick=()=>{const t=$('text').value;$('text').value='';reply(t)};$('text').onkeydown=e=>{if(e.key==='Enter')$('send').click()};
+function listen(){if(!call)return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('status').textContent='Chrome speech recognition is unavailable';return}if(rec)return;rec=new SR();rec.lang='en-US';rec.continuous=false;rec.interimResults=false;rec.onstart=()=>$('status').textContent='Listening…';rec.onresult=e=>{const t=e.results?.[0]?.[0]?.transcript||'';rec=null;reply(t)};rec.onend=()=>{rec=null;if(call&&!speechSynthesis.speaking)setTimeout(listen,500)};rec.onerror=()=>{rec=null;if(call)setTimeout(listen,900)};try{rec.start()}catch{rec=null;if(call)setTimeout(listen,900)}}
+$('call').onclick=()=>{call=!call;$('call').textContent=call?'End voice call':'Start voice call';if(call)listen();else{try{rec?.stop()}catch{}rec=null;speechSynthesis.cancel();setSpeaking(false);$('status').textContent='Ready'}};
+draw();
 </script>
 </body>
 </html>
