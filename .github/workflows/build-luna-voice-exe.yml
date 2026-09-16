@@ -21,6 +21,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: luna-app/package.json
 
       - name: Verify Node and npm
         run: |
@@ -53,9 +55,9 @@ jobs:
             ''
             'Double-click Luna-Backend.exe. Chrome opens automatically.'
             ''
-            'Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> Wav2Lip -> MP4 -> Chrome.'
+            'Pipeline: Microphone -> Deepgram Nova-3 STT -> Luna reply -> Deepgram Aura-2 MP3 -> MuseTalk 1.5 -> MP4 -> Chrome.'
             ''
-            'Enter your Deepgram API key and Replicate token in Chrome. They are stored locally in the browser and sent only to the local Luna backend.'
+            'Enter your Deepgram API key in Chrome. MuseTalk 1.5 is used through the public Hugging Face ZeroGPU Space; no Replicate token is required.'
             ''
             'Only luna mouth closed.png is used for Luna.'
           )
