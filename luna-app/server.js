@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
+import { unzipSync } from 'fflate';
 
 const PREFERRED_PORT = Number(process.env.LUNA_PORT || 8787);
 const FLP_API = process.env.FASTER_LIVEPORTRAIT_API || 'http://127.0.0.1:9871';
@@ -18,7 +19,7 @@ let PORT = PREFERRED_PORT;
 function log(...args) {
   const line = `[${new Date().toISOString()}] ${args.map(x => x instanceof Error ? (x.stack || x.message) : String(x)).join(' ')}\n`;
   try { fs.appendFileSync(LOG, line); } catch {}
-  console.log(line.trim());
+  try { console.log(line.trim()); } catch {}
 }
 process.on('uncaughtException', err => log('UNCAUGHT EXCEPTION', err));
 process.on('unhandledRejection', err => log('UNHANDLED REJECTION', err));
@@ -63,15 +64,7 @@ function lunaReply(text) {
   return `I heard you say, “${t.slice(0,180)}”. I am listening. Tell me more.`;
 }
 
-async function zipVideo(zipBuffer) {
-  // Load the ZIP library only when animation is requested. This keeps the EXE/server alive
-  // even if a packaging/runtime problem affects the optional video extraction dependency.
-  let unzipSync, strFromU8;
-  try {
-    ({ unzipSync, strFromU8 } = await import('fflate'));
-  } catch (e) {
-    throw new Error(`Video ZIP support could not load: ${e.message}`);
-  }
+function zipVideo(zipBuffer) {
   const files = unzipSync(new Uint8Array(zipBuffer));
   for (const [name, data] of Object.entries(files)) {
     if (/\.(mp4|webm|mov)$/i.test(name)) return Buffer.from(data);
@@ -139,7 +132,7 @@ function startServer(port) {
   PORT = port;
   const server = http.createServer(handle);
   server.on('error', err => {
-    if (err.code === 'EADDRINUSE') {
+    if (err.code === 'EADDRINUSE' && port < PREFERRED_PORT + 10) {
       log(`Port ${port} is already in use; trying ${port + 1}.`);
       try { server.close(); } catch {}
       setTimeout(() => startServer(port + 1), 100);
