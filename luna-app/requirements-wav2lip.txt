@@ -1,0 +1,9 @@
+numpy<2
+opencv-python
+opencv-contrib-python
+librosa
+scipy
+numba
+tqdm
+soundfile
+python-dateutil
