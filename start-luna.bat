@@ -4,7 +4,6 @@ cd /d "%~dp0"
 
 if not exist "wav2lip\inference.py" (
   echo Luna has not been set up yet.
-  echo Running setup-luna.bat now...
   call "%~dp0setup-luna.bat"
   if errorlevel 1 exit /b 1
 )
@@ -27,13 +26,11 @@ if not exist "luna-app\server.js" (
   pause
   exit /b 1
 )
-
 if not exist "luna-app\index.html" (
   echo Luna Chrome UI is missing.
   pause
   exit /b 1
 )
-
 if not exist "luna-app\wav2lip_service.py" (
   echo Wav2Lip service is missing.
   pause
@@ -41,7 +38,7 @@ if not exist "luna-app\wav2lip_service.py" (
 )
 
 echo Starting Wav2Lip engine...
-start "Luna Wav2Lip" /min cmd /c "cd /d "%~dp0" && py -3.11 luna-app\wav2lip_service.py > Wav2Lip.log 2>&1"
+start "Luna Wav2Lip" /min cmd /c "cd /d ""%~dp0"" && py -3.11 luna-app\wav2lip_service.py > Wav2Lip.log 2>&1"
 
 echo Waiting for Wav2Lip...
 for /l %%N in (1,1,30) do (
@@ -58,13 +55,9 @@ exit /b 1
 :wavready
 echo Wav2Lip is ready.
 echo Starting Luna backend...
-start "Luna Backend" /min cmd /c "cd /d "%~dp0" && node luna-app\server.js"
-
+start "Luna Backend" /min cmd /c "cd /d ""%~dp0"" && node luna-app\server.js"
 timeout /t 2 /nobreak >nul
 start "" "http://127.0.0.1:8787"
-
-echo.
 echo Luna is running in Chrome.
 echo Close the two minimized Luna windows to stop the app.
-echo.
 exit /b 0
