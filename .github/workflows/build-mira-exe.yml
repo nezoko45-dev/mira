@@ -5,6 +5,7 @@ on:
     paths:
       - 'backend/**'
       - 'index.html'
+      - 'Start-Mira.bat'
       - 'luna mouth closed.png'
       - 'luna mouth open.png'
 jobs:
@@ -26,15 +27,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist\Mira | Out-Null
           Copy-Item index.html dist\Mira\index.html
+          Copy-Item Start-Mira.bat dist\Mira\Start-Mira.bat
           Copy-Item 'luna mouth closed.png' dist\Mira\'luna mouth closed.png'
           Copy-Item 'luna mouth open.png' dist\Mira\'luna mouth open.png'
           Copy-Item backend\MiraBackend.exe dist\Mira\MiraBackend.exe
           New-Item -ItemType Directory -Force dist\Mira\generated | Out-Null
-          @'
-          Start-Process "$PSScriptRoot\MiraBackend.exe"
-          Start-Sleep -Seconds 2
-          Start-Process "http://127.0.0.1:47821/"
-          '@ | Set-Content dist\Mira\Start-Mira.ps1
       - name: Zip Mira package
         shell: pwsh
         run: Compress-Archive -Path dist\Mira\* -DestinationPath dist\Mira-Chrome-EXE.zip -Force
