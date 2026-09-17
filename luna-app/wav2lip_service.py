@@ -1,10 +1,8 @@
-import cgi
 import http.server
-import io
 import json
 import os
-import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -13,23 +11,71 @@ WAV2LIP_DIR = ROOT / "wav2lip"
 CHECKPOINT = WAV2LIP_DIR / "checkpoints" / "wav2lip.pth"
 INFERENCE = WAV2LIP_DIR / "inference.py"
 PORT = int(os.environ.get("WAV2LIP_PORT", "9872"))
+MAX_REQUEST = 64 * 1024 * 1024
+
+
+def parse_multipart(content_type, body):
+    """Small dependency-free multipart parser for the two files Luna sends."""
+    marker = "boundary="
+    if marker not in content_type:
+        raise ValueError("Content-Type must be multipart/form-data with a boundary.")
+    boundary = content_type.split(marker, 1)[1].strip()
+    if boundary.startswith('"') and boundary.endswith('"'):
+        boundary = boundary[1:-1]
+    if not boundary:
+        raise ValueError("Multipart boundary is missing.")
+
+    delim = b"--" + boundary.encode("utf-8")
+    fields = {}
+    for part in body.split(delim):
+        part = part.strip(b"\r\n-")
+        if not part or b"\r\n\r\n" not in part:
+            continue
+        header_bytes, data = part.split(b"\r\n\r\n", 1)
+        headers = header_bytes.decode("utf-8", "replace").split("\r\n")
+        disposition = next((h for h in headers if h.lower().startswith("content-disposition:")), "")
+        name = None
+        filename = None
+        for token in disposition.split(";"):
+            token = token.strip()
+            if token.startswith("name="):
+                name = token[5:].strip().strip('"')
+            elif token.startswith("filename="):
+                filename = token[9:].strip().strip('"')
+        if name:
+            fields[name] = (filename, data)
+    return fields
+
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def send_json(self, code, obj):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
 
     def log_message(self, fmt, *args):
-        print("[Wav2Lip] " + (fmt % args))
+        print("[Wav2Lip] " + (fmt % args), flush=True)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def do_GET(self):
         if self.path == "/health":
             ready = INFERENCE.exists() and CHECKPOINT.exists()
-            self.send_json(200, {"ok": True, "ready": ready, "checkpoint": CHECKPOINT.exists()})
+            self.send_json(200, {
+                "ok": True,
+                "ready": ready,
+                "checkpoint": CHECKPOINT.exists(),
+                "inference": INFERENCE.exists(),
+            })
             return
         self.send_json(404, {"error": "Not found"})
 
@@ -44,18 +90,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_json(503, {"error": "Wav2Lip checkpoint is missing. Run setup-luna.bat first."})
             return
 
-        length = int(self.headers.get("Content-Length", "0"))
-        if length <= 0 or length > 64 * 1024 * 1024:
-            self.send_json(400, {"error": "Invalid request size."})
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length <= 0:
+            self.send_json(400, {"error": "Bad request: empty request body."})
             return
-        body = self.rfile.read(length)
+        if length > MAX_REQUEST:
+            self.send_json(413, {"error": "Request is too large."})
+            return
+
         content_type = self.headers.get("Content-Type", "")
-        env = {"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type, "CONTENT_LENGTH": str(length)}
-        form = cgi.FieldStorage(fp=io.BytesIO(body), headers=self.headers, environ=env)
-        face = form["face"] if "face" in form else None
-        audio = form["audio"] if "audio" in form else None
-        if not face or not audio:
-            self.send_json(400, {"error": "Expected multipart fields: face and audio."})
+        if not content_type.lower().startswith("multipart/form-data"):
+            self.send_json(400, {"error": "Bad request: expected multipart/form-data."})
+            return
+
+        try:
+            body = self.rfile.read(length)
+            fields = parse_multipart(content_type, body)
+            face = fields.get("face")
+            audio = fields.get("audio")
+            if not face or not face[1]:
+                raise ValueError("Missing multipart field 'face'.")
+            if not audio or not audio[1]:
+                raise ValueError("Missing multipart field 'audio'.")
+        except Exception as exc:
+            self.send_json(400, {"error": f"Bad request: {exc}"})
             return
 
         with tempfile.TemporaryDirectory(prefix="luna_wav2lip_") as tmp:
@@ -63,10 +124,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             face_path = tmp / "face.png"
             audio_path = tmp / "speech.mp3"
             output_path = tmp / "luna.mp4"
-            face_path.write_bytes(face.file.read())
-            audio_path.write_bytes(audio.file.read())
+            face_path.write_bytes(face[1])
+            audio_path.write_bytes(audio[1])
+
             cmd = [
-                "python", str(INFERENCE),
+                sys.executable, str(INFERENCE),
                 "--checkpoint_path", str(CHECKPOINT),
                 "--face", str(face_path),
                 "--audio", str(audio_path),
@@ -75,28 +137,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "--fps", "25",
                 "--pads", "0", "20", "0", "0",
                 "--resize_factor", "2",
-                "--nosmooth"
+                "--nosmooth",
             ]
-            print("[Wav2Lip] Generating MP4...")
+            print("[Wav2Lip] Generating MP4...", flush=True)
             try:
-                proc = subprocess.run(cmd, cwd=str(WAV2LIP_DIR), capture_output=True, text=True, timeout=180)
+                proc = subprocess.run(
+                    cmd,
+                    cwd=str(WAV2LIP_DIR),
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                )
             except subprocess.TimeoutExpired:
                 self.send_json(504, {"error": "Wav2Lip timed out after 180 seconds."})
                 return
+            except Exception as exc:
+                self.send_json(500, {"error": f"Could not start Wav2Lip: {exc}"})
+                return
+
             if proc.returncode != 0 or not output_path.exists():
-                details = (proc.stderr or proc.stdout or "Wav2Lip failed")[-4000:]
+                details = (proc.stderr or proc.stdout or "Wav2Lip failed")[-6000:]
                 self.send_json(500, {"error": "Wav2Lip inference failed.", "details": details})
                 return
+
             data = output_path.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "video/mp4")
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(data)
-            print("[Wav2Lip] MP4 ready: %.1f KB" % (len(data) / 1024))
+            print("[Wav2Lip] MP4 ready: %.1f KB" % (len(data) / 1024), flush=True)
+
 
 if __name__ == "__main__":
-    print(f"Wav2Lip service listening on http://127.0.0.1:{PORT}")
-    print(f"Checkpoint: {CHECKPOINT}")
+    print(f"Wav2Lip service listening on http://127.0.0.1:{PORT}", flush=True)
+    print(f"Checkpoint: {CHECKPOINT}", flush=True)
     http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
