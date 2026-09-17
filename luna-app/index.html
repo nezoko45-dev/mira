@@ -6,55 +6,62 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#07050a;color:#f8edf7;font:15px system-ui,Segoe UI,sans-serif}
 .app{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;padding:16px;max-width:1500px;margin:auto}.card{background:#120b15;border:1px solid #43283e;border-radius:22px;overflow:hidden}
-.stage{position:relative;min-height:calc(100vh - 32px);display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#3a1835,#08060b 68%);padding:45px 20px 25px}.avatar{max-width:94%;max-height:82vh;border-radius:18px;box-shadow:0 0 38px #000}.top{position:absolute;top:0;left:0;right:0;padding:18px 22px;display:flex;justify-content:space-between;background:linear-gradient(#08060bee,transparent)}.brand{font-weight:900;letter-spacing:.16em}.status{font-size:12px;color:#d6bfd1}.caption{position:absolute;bottom:18px;left:5%;right:5%;padding:12px 16px;border-radius:14px;background:#09070bee;text-align:center}
+.stage{position:relative;min-height:calc(100vh - 32px);display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#3a1835,#08060b 68%);padding:45px 20px 25px}.avatar{max-width:94%;max-height:82vh;border-radius:18px;box-shadow:0 0 38px #000;object-fit:contain}.top{position:absolute;top:0;left:0;right:0;padding:18px 22px;display:flex;justify-content:space-between;background:linear-gradient(#08060bee,transparent)}.brand{font-weight:900;letter-spacing:.16em}.status{font-size:12px;color:#d6bfd1}.caption{position:absolute;bottom:18px;left:5%;right:5%;padding:12px 16px;border-radius:14px;background:#09070bee;text-align:center}
 .side{padding:20px;display:flex;flex-direction:column;min-height:calc(100vh - 32px)}h1{margin:0 0 3px;font-size:30px}.sub{font-size:12px;color:#aa93a7}.messages{flex:1;overflow:auto;min-height:230px;margin:15px 0}.msg{padding:10px 12px;margin:8px 0;border-radius:14px;white-space:pre-wrap}.you{background:#251723;margin-left:12%}.luna{background:#1b1019;margin-right:8%}.row{display:flex;gap:8px}.row input{min-width:0;flex:1}input{background:#09070c;color:#fff;border:1px solid #59364f;border-radius:11px;padding:12px;font:inherit}button{border:0;border-radius:11px;padding:11px 14px;background:#b84f8e;color:#fff;font-weight:800;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.call{width:100%;margin-top:10px;background:#df639f}.call.active{background:#5b304b}.panel{margin-top:12px;padding:12px;border:1px solid #412b3d;border-radius:14px}.panel input{width:100%;margin-top:7px}.panel button{margin-top:8px;width:100%;background:#493047}.ok{color:#9fe0ae}.hint{font-size:11px;line-height:1.45;color:#9e899b;margin-top:8px}
 @media(max-width:850px){.app{grid-template-columns:1fr}.stage{min-height:65vh}.side{min-height:auto}}
 </style></head>
 <body><main class="app">
-<section class="card stage"><div class="top"><div class="brand">LUNA 🖤</div><div id="status" class="status">Loading…</div></div><canvas id="avatar" class="avatar"></canvas><div id="caption" class="caption">Luna is ready.</div></section>
-<aside class="card side"><h1>Luna</h1><div class="sub">Chrome UI • Deepgram voice • mouth-only animation</div><div id="messages" class="messages"></div><div class="row"><input id="text" placeholder="Talk to Luna…"><button id="send">Speak</button></div><button id="call" class="call">☎ Start voice call</button>
+<section class="card stage"><div class="top"><div class="brand">LUNA 🖤</div><div id="status" class="status">Loading…</div></div><img id="avatar" class="avatar" alt="Luna"><div id="caption" class="caption">Luna is ready.</div></section>
+<aside class="card side"><h1>Luna</h1><div class="sub">Chrome UI • Deepgram voice • generated full-frame flipbook</div><div id="messages" class="messages"></div><div class="row"><input id="text" placeholder="Talk to Luna…"><button id="send">Speak</button></div><button id="call" class="call">☎ Start voice call</button>
 <div class="panel"><b>Deepgram API key</b><div class="hint">Saved only in this browser and sent to your local Luna backend.</div><input id="dg" type="password" placeholder="Deepgram API key"><button id="save">Save key</button></div>
-<div class="panel"><b>Mouth animation</b><div id="engine"><span class="ok">● Mouth region only</span></div><div class="hint">Only the mouth region of <b>luna mouth closed.png</b> is deformed while Luna speaks. The chest, shoulders and rest of the artwork stay fixed.</div></div>
+<div class="panel"><b>Luna flipbook</b><div id="engine"><span class="ok">● Building frames…</span></div><div class="hint">The browser uses only <b>luna mouth closed.png</b> as the source. It creates complete speaking-frame images in memory, then flips between those full frames while Luna talks. No separate open-mouth image and no mouth overlay are used.</div></div>
 </aside></main>
 <script>
-const $=id=>document.getElementById(id),canvas=$("avatar"),ctx=canvas.getContext("2d",{willReadFrequently:true});
-let base=null,speaking=false,call=false,rec=null,busy=false,audio=null,raf=0,phase=0,messages=[];
+const $=id=>document.getElementById(id),avatar=$("avatar");
+let frames=[],frameIndex=0,speaking=false,call=false,rec=null,busy=false,audio=null,flipTimer=0,messages=[];
 try{messages=JSON.parse(localStorage.getItem('lunaMessages')||'[]')}catch{}$('dg').value=localStorage.getItem('lunaDG')||'';
-const keys=()=>({deepgramKey:$('dg').value.trim()});$('save').onclick=()=>{localStorage.setItem('lunaDG',$('dg').value.trim());$('status').textContent='Key saved'};
-const img=new Image();img.onload=()=>{canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;ctx.drawImage(img,0,0);base=ctx.getImageData(0,0,canvas.width,canvas.height);draw(0);$('status').textContent='Ready'};img.onerror=()=>{$('status').textContent='Closed-mouth Luna image missing'};img.src='/luna.png';
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function draw(open){
- if(!base)return;
- const w=canvas.width,h=canvas.height,s=base.data,out=new ImageData(new Uint8ClampedArray(s),w,h),d=out.data;
- // Mouth is on Luna's face, not the chest. Normalized coordinates are relative to the source image.
- const cx=w*.50,cy=h*.385,rx=w*.105,ry=h*.055;
- const mouthOpen=open;
- for(let y=Math.floor(cy-ry-4);y<=Math.ceil(cy+ry+8);y++){
-  if(y<0||y>=h)continue;
-  for(let x=Math.floor(cx-rx-4);x<=Math.ceil(cx+rx+4);x++){
-   if(x<0||x>=w)continue;
-   const nx=(x-cx)/rx,ny=(y-cy)/ry,r=nx*nx+ny*ny;
-   if(r>1.08)continue;
-   const q=clamp(1-r,0,1);
-   const vertical=1+mouthOpen*.92*q;
-   const sy=clamp(Math.round(cy+(y-cy)/vertical),0,h-1);
-   const sx=clamp(Math.round(cx+(x-cx)*(1-.045*mouthOpen*q)),0,w-1);
-   const si=(sy*w+sx)*4,di=(y*w+x)*4,m=.92*q;
-   d[di]=s[di]*(1-m)+s[si]*m;d[di+1]=s[di+1]*(1-m)+s[si+1]*m;d[di+2]=s[di+2]*(1-m)+s[si+2]*m;
-  }
- }
- // Add a very small dark cavity only inside the existing mouth area so the opening reads as a mouth, not body movement.
- if(mouthOpen>.08){
-  const hh=ry*(.16+.48*mouthOpen),ww=rx*(.72+.08*mouthOpen);
-  for(let y=Math.floor(cy-hh);y<=Math.ceil(cy+hh);y++)for(let x=Math.floor(cx-ww);x<=Math.ceil(cx+ww);x++){
-   if(x<0||x>=w||y<0||y>=h)continue;const nx=(x-cx)/ww,ny=(y-cy)/hh,rr=nx*nx+ny*ny;if(rr>1)continue;
-   const edge=clamp((1-rr)*.72,0,.72),i=(y*w+x)*4;d[i]*=(1-edge*.58);d[i+1]*=(1-edge*.68);d[i+2]*=(1-edge*.68);
-  }
- }
- ctx.putImageData(out,0,0);
+const keys=()=>({deepgramKey:$('dg').value.trim()});
+$('save').onclick=()=>{localStorage.setItem('lunaDG',$('dg').value.trim());$('status').textContent='Key saved'};
+
+// Generate complete image frames from the single closed-mouth source.
+// Each frame is a whole image (a data URL), not a mouth overlay or CSS deformation.
+async function buildFlipbook(img){
+  const c=document.createElement('canvas'),x=c.getContext('2d');
+  c.width=img.naturalWidth;c.height=img.naturalHeight;x.drawImage(img,0,0);const source=x.getImageData(0,0,c.width,c.height);
+  const w=c.width,h=c.height;
+  // Face-relative mouth area. These values are used only while generating each complete frame.
+  const cx=w*.50,cy=h*.385,rx=w*.105,ry=h*.055;
+  const states=[0,.12,.28,.46,.66,.84,.62,.38,.18];
+  frames=states.map(open=>{
+    const out=new ImageData(new Uint8ClampedArray(source.data),w,h),d=out.data,s=source.data;
+    // Stretch the source pixels into the mouth area, producing a complete new frame.
+    const y0=Math.floor(cy-ry-5),y1=Math.ceil(cy+ry+10),x0=Math.floor(cx-rx-5),x1=Math.ceil(cx+rx+5);
+    for(let y=y0;y<=y1;y++)for(let xx=x0;xx<=x1;xx++){
+      if(xx<0||xx>=w||y<0||y>=h)continue;
+      const nx=(xx-cx)/rx,ny=(y-cy)/ry,r=nx*nx+ny*ny;if(r>1.1)continue;
+      const q=Math.max(0,Math.min(1,1-r));
+      const vertical=1+open*.92*q;
+      const sy=Math.max(0,Math.min(h-1,Math.round(cy+(y-cy)/vertical)));
+      const sx=Math.max(0,Math.min(w-1,Math.round(cx+(xx-cx)*(1-.045*open*q))));
+      const si=(sy*w+sx)*4,di=(y*w+xx)*4,m=.94*q;
+      d[di]=s[di]*(1-m)+s[si]*m;d[di+1]=s[di+1]*(1-m)+s[si+1]*m;d[di+2]=s[di+2]*(1-m)+s[si+2]*m;
+    }
+    // Dark cavity is baked into this full frame, so the result remains one complete image.
+    if(open>.08){
+      const hh=ry*(.16+.48*open),ww=rx*(.72+.08*open);
+      for(let y=Math.floor(cy-hh);y<=Math.ceil(cy+hh);y++)for(let xx=Math.floor(cx-ww);xx<=Math.ceil(cx+ww);xx++){
+        if(xx<0||xx>=w||y<0||y>=h)continue;const nx=(xx-cx)/ww,ny=(y-cy)/hh,rr=nx*nx+ny*ny;if(rr>1)continue;
+        const edge=Math.max(0,Math.min(.72,(1-rr)*.72)),i=(y*w+xx)*4;
+        d[i]*=(1-edge*.58);d[i+1]*=(1-edge*.68);d[i+2]*=(1-edge*.68);
+      }
+    }
+    const fc=document.createElement('canvas');fc.width=w;fc.height=h;fc.getContext('2d').putImageData(out,0,0);return fc.toDataURL('image/png');
+  });
+  frameIndex=0;avatar.src=frames[0];$('engine').innerHTML='<span class="ok">● '+frames.length+' full Luna frames ready</span>';$('status').textContent='Ready';
 }
-function animate(){if(!speaking){raf=0;draw(0);return}phase+=.24;const v=(Math.sin(phase)+1)/2;draw(v);raf=requestAnimationFrame(animate)}
-function startMouth(){speaking=true;if(!raf)raf=requestAnimationFrame(animate)}function stopMouth(){speaking=false;phase=0;if(!raf)draw(0)}
+const img=new Image();img.onload=()=>buildFlipbook(img);img.onerror=()=>{$('status').textContent='Closed-mouth Luna image missing';$('engine').textContent='Source image missing'};img.src='/luna.png';
+function startFlipbook(){if(!frames.length||flipTimer)return;flipTimer=setInterval(()=>{if(!speaking){clearInterval(flipTimer);flipTimer=0;frameIndex=0;if(frames[0])avatar.src=frames[0];return}frameIndex=(frameIndex+1)%frames.length;avatar.src=frames[frameIndex]},95)}
+function startMouth(){speaking=true;startFlipbook()}function stopMouth(){speaking=false;frameIndex=0;if(frames[0])avatar.src=frames[0]}
 function render(){const box=$('messages');box.innerHTML='';for(const m of messages.slice(-60)){const d=document.createElement('div');d.className='msg '+(m.role==='user'?'you':'luna');d.textContent=(m.role==='user'?'You: ':'Luna: ')+m.text;box.appendChild(d)}box.scrollTop=box.scrollHeight;localStorage.setItem('lunaMessages',JSON.stringify(messages.slice(-60)))}
 async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({error:'Invalid backend response'}));if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j}
 function playAudio(b64){if(audio){try{audio.pause()}catch{}}const bin=atob(b64),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);const blob=new Blob([a],{type:'audio/mpeg'}),url=URL.createObjectURL(blob);audio=new Audio(url);audio.onplay=()=>{$('status').textContent='Luna is speaking…';startMouth()};audio.onended=()=>{stopMouth();URL.revokeObjectURL(url);$('status').textContent=call?'Listening…':'Ready';$('caption').textContent=call?'Speak to Luna…':'Luna is ready.'};audio.onerror=()=>{stopMouth();URL.revokeObjectURL(url);$('status').textContent='Audio error'};audio.play().catch(()=>{$('caption').textContent='Click Speak again to allow audio.'})}
