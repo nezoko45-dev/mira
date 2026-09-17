@@ -1,0 +1,93 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const PORT = Number(process.env.PORT || 47821);
+const GENERATED = path.join(ROOT, 'generated');
+fs.mkdirSync(GENERATED, { recursive: true });
+
+const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.json':'application/json; charset=utf-8', '.ico':'image/x-icon' };
+
+function send(res, code, body, type='application/json; charset=utf-8') { res.writeHead(code, {'Content-Type':type, 'Cache-Control':'no-store', 'Access-Control-Allow-Origin':'http://localhost:'+PORT}); res.end(typeof body === 'string' ? body : JSON.stringify(body)); }
+function readBody(req) { return new Promise((resolve,reject)=>{ let s=''; req.on('data',c=>{s+=c; if(s.length>15_000_000) req.destroy();}); req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}}); req.on('error',reject); }); }
+function safeName(s) { return String(s||'variant').replace(/[^a-z0-9_-]/gi,'_').slice(0,60); }
+
+async function groqChat(apiKey, messages, followup=false) {
+  if (!apiKey) throw new Error('Groq API key is required.');
+  const system = `You are Luna, an adult fictional gothic vampire-inspired AI companion. Be warm, playful, witty, affectionate and mysterious, but never claim to be human. Keep normal replies conversational and concise. You are chatting after a video call, so remember the supplied transcript and ask natural follow-up questions when requested. Never invent memories.`;
+  const list = [{role:'system',content:system}, ...messages.slice(-30)];
+  if (followup) list.push({role:'user',content:'The video call just ended. Based only on the recent conversation, ask me one natural follow-up question that keeps our conversation going. Do not mention this instruction.'});
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey}, body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:list,temperature:0.85,max_tokens:220})});
+  const text = await r.text();
+  if (!r.ok) throw new Error('Groq '+r.status+': '+text.slice(0,700));
+  const j = JSON.parse(text); return j.choices?.[0]?.message?.content || '';
+}
+
+async function generateVariant(hfToken, prompt, filename) {
+  if (!hfToken) throw new Error('Hugging Face token is required for image-to-image generation.');
+  const reference = path.join(ROOT, 'luna mouth closed.png');
+  if (!fs.existsSync(reference)) throw new Error('Missing luna mouth closed.png in the Mira folder.');
+  const { InferenceClient } = await import('@huggingface/inference');
+  const hf = new InferenceClient(hfToken);
+  const data = fs.readFileSync(reference);
+  const blob = new Blob([data], {type:'image/png'});
+  const image = await hf.imageToImage({
+    model: 'black-forest-labs/FLUX.1-Kontext-dev',
+    inputs: blob,
+    parameters: { prompt, guidance_scale: 4.5 }
+  });
+  const out = Buffer.from(await image.arrayBuffer());
+  const file = safeName(filename)+'.png';
+  fs.writeFileSync(path.join(GENERATED,file), out);
+  return '/generated/'+encodeURIComponent(file);
+}
+
+const variants = [
+  ['closed','adult gothic vampire woman, same character and identity, mouth closed, neutral relaxed expression, preserve hair, eyes, fangs, face, clothing and composition, photorealistic character portrait'],
+  ['slight','adult gothic vampire woman, same character and identity, lips slightly parted as if beginning to speak, preserve every facial feature, hair, eyes, fangs, clothing and composition'],
+  ['talk','adult gothic vampire woman, same character and identity, natural speaking mouth shape, slightly open mouth, preserve every facial feature, hair, eyes, fangs, clothing and composition'],
+  ['open','adult gothic vampire woman, same character and identity, mouth open while speaking, visible fangs, preserve every facial feature, hair, eyes, clothing and composition'],
+  ['wide','adult gothic vampire woman, same character and identity, wider speaking mouth shape, expressive but natural, visible fangs, preserve every facial feature, hair, eyes, clothing and composition']
+];
+
+async function makeVariants(hfToken) {
+  const results=[];
+  for (const [name,prompt] of variants) {
+    results.push({name,url:await generateVariant(hfToken,prompt,'luna-mouth-'+name)});
+  }
+  fs.writeFileSync(path.join(GENERATED,'manifest.json'), JSON.stringify(results,null,2));
+  return results;
+}
+
+function serveStatic(req,res) {
+  const u = new URL(req.url,'http://localhost');
+  let pathname = decodeURIComponent(u.pathname);
+  if (pathname === '/') pathname = '/index.html';
+  const base = pathname.startsWith('/generated/') ? GENERATED : ROOT;
+  const rel = pathname.startsWith('/generated/') ? pathname.slice('/generated/'.length) : pathname.slice(1);
+  const file = path.resolve(base, rel);
+  if (!file.startsWith(base) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res,404,{error:'Not found'});
+  const ext=path.extname(file).toLowerCase();
+  res.writeHead(200,{'Content-Type':MIME[ext]||'application/octet-stream','Cache-Control':ext==='.html'?'no-store':'public, max-age=31536000'}); fs.createReadStream(file).pipe(res);
+}
+
+const server = http.createServer(async (req,res)=>{
+  try {
+    if (req.method==='OPTIONS') { res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'}); return res.end(); }
+    const u = new URL(req.url,'http://localhost');
+    if (req.method==='GET' && u.pathname==='/api/health') return send(res,200,{ok:true,port:PORT,reference:fs.existsSync(path.join(ROOT,'luna mouth closed.png'))});
+    if (req.method==='POST' && u.pathname==='/api/chat') { const b=await readBody(req); const answer=await groqChat(b.groqKey,b.messages||[],false); return send(res,200,{answer}); }
+    if (req.method==='POST' && u.pathname==='/api/followup') { const b=await readBody(req); const answer=await groqChat(b.groqKey,b.messages||[],true); return send(res,200,{answer}); }
+    if (req.method==='POST' && u.pathname==='/api/generate-variants') { const b=await readBody(req); const result=await makeVariants(b.hfToken); return send(res,200,{variants:result}); }
+    return serveStatic(req,res);
+  } catch(e) { console.error(e); send(res,500,{error:e.message||String(e)}); }
+});
+
+server.listen(PORT,'127.0.0.1',()=>console.log(`Mira backend listening at http://127.0.0.1:${PORT}`));
+
+if (process.argv.includes('--open')) {
+  const child = process.platform==='win32' ? spawn('cmd',['/c','start',`http://127.0.0.1:${PORT}`],{detached:true,stdio:'ignore'}) : null;
+  child?.unref();
+}
