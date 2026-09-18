@@ -51,10 +51,10 @@ button:hover{filter:brightness(1.1)}
 <h2>Mira setup</h2>
 <div class="grid">
 <input id="dgKey" type="password" placeholder="Deepgram API key">
-<input id="falKey" type="password" placeholder="fal.ai key">
+<input id="replicateKey" type="password" placeholder="Replicate API token">
 <button id="save">Save & start Mira</button>
 </div>
-<div class="hint">Only your Deepgram and fal.ai keys are needed. The Mira voice agent is configured directly in this app.</div>
+<div class="hint">Only your Deepgram and Replicate keys are needed. The Mira voice agent is configured directly in this app.</div>
 </div>
 </section>
 </main>
@@ -202,7 +202,7 @@ async function start(isReconnect=false){
 }
 
 $('save').onclick=async()=>{
-  const body={deepgramApiKey:$('dgKey').value,falKey:$('falKey').value};
+  const body={deepgramApiKey:$('dgKey').value,replicateApiKey:$('replicateKey').value};
   const r=await fetch('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json();
   if(!r.ok){alert(j.error||'Setup failed');return}
