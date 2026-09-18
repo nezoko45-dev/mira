@@ -44,6 +44,55 @@ async Task<string> CacheVideoAsync(string url, string prefix)
     return fileName;
 }
 
+async Task<string> UploadReplicateImageAsync(string token, string imagePath)
+{
+    using var http=new HttpClient();
+    http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
+    using var form=new MultipartFormDataContent();
+    var file=new ByteArrayContent(await File.ReadAllBytesAsync(imagePath));
+    file.Headers.ContentType=new MediaTypeHeaderValue("image/png");
+    form.Add(file,"content","luna-mouth-closed.png");
+    var response=await http.PostAsync("https://api.replicate.com/v1/files",form);
+    var text=await response.Content.ReadAsStringAsync();
+    if(!response.IsSuccessStatusCode) throw new InvalidOperationException("Replicate image upload failed: "+text);
+    var url=JsonNode.Parse(text)?["urls"]?["get"]?.ToString();
+    if(string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("Replicate did not return an image URL.");
+    return url;
+}
+async Task<string> GenerateReplicateVideoAsync(string token,string imageUrl,string prompt)
+{
+    using var http=new HttpClient();
+    http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
+    var payload=new JsonObject { ["input"]=new JsonObject {
+        ["image"]=imageUrl,["prompt"]=prompt,["resolution"]="480p",["aspect_ratio"]="16:9",
+        ["frames"]=81,["fast_mode"]="Balanced",["sample_steps"]=30,["sample_guide_scale"]=5,
+        ["negative_prompt"]="face distortion, identity change, extra people, subtitles, text, warped eyes, warped mouth, camera shake"
+    }};
+    using var response=await http.PostAsync("https://api.replicate.com/v1/models/wavespeedai/wan-2.1-i2v-480p/predictions",
+        new StringContent(payload.ToJsonString(),Encoding.UTF8,"application/json"));
+    var responseText=await response.Content.ReadAsStringAsync();
+    if(!response.IsSuccessStatusCode) throw new InvalidOperationException("Replicate video request failed: "+responseText);
+    var id=JsonNode.Parse(responseText)?["id"]?.ToString();
+    if(string.IsNullOrWhiteSpace(id)) throw new InvalidOperationException("Replicate did not return a prediction id.");
+    for(var i=0;i<120;i++){
+        var check=await http.GetAsync("https://api.replicate.com/v1/predictions/"+id);
+        var checkText=await check.Content.ReadAsStringAsync();
+        if(!check.IsSuccessStatusCode) throw new InvalidOperationException("Replicate status request failed: "+checkText);
+        var node=JsonNode.Parse(checkText)?.AsObject();
+        var status=node?["status"]?.ToString();
+        if(string.Equals(status,"succeeded",StringComparison.OrdinalIgnoreCase)){
+            var output=node?["output"];
+            var url=output is JsonValue ? output.ToString() : output?.AsArray().FirstOrDefault()?.ToString();
+            if(string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("Replicate completed without a video URL.");
+            return url;
+        }
+        if(string.Equals(status,"failed",StringComparison.OrdinalIgnoreCase)||string.Equals(status,"canceled",StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Replicate video generation "+status+": "+checkText);
+        await Task.Delay(2000);
+    }
+    throw new TimeoutException("Replicate video generation timed out.");
+}
+
 app.MapGet("/api/media/{name}", (string name) =>
 {
     var safe = Path.GetFileName(name);
@@ -75,7 +124,7 @@ app.MapGet("/api/config", () =>
     var c = LoadConfig();
     return Results.Ok(new {
         ready = !string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString()),
-        hasFal = !string.IsNullOrWhiteSpace(c["falKey"]?.ToString()),
+        hasReplicate = !string.IsNullOrWhiteSpace(c["replicateApiKey"]?.ToString()),
         configured = true
     });
 });
@@ -85,7 +134,7 @@ app.MapPost("/api/setup", async (HttpRequest request) =>
     var body = await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
     if (body is null) return Results.BadRequest(new { error = "Invalid setup data." });
     var c = LoadConfig();
-    foreach (var key in new[] { "deepgramApiKey", "falKey" })
+    foreach (var key in new[] { "deepgramApiKey", "replicateApiKey" })
         if (body[key] is not null) c[key] = body[key]!.ToString().Trim();
     SaveConfig(c);
     return Results.Ok(new { ok = true });
@@ -107,88 +156,33 @@ app.MapGet("/api/deepgram-token", async () =>
 
 app.MapPost("/api/idle-video", async () =>
 {
-    var key = LoadConfig()["falKey"]?.ToString();
-    if (string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error = "fal.ai key is missing. Open Setup." });
-    var imagePath = Path.Combine(root, "luna mouth closed.png");
-    if (!File.Exists(imagePath)) return Results.NotFound(new { error = "luna mouth closed.png was not packaged beside Mira.exe." });
-    var dataUri = "data:image/png;base64," + Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath));
-    using var http = new HttpClient();
-    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", key);
-    var payload = new JsonObject {
-        ["prompt"] = "Create a seamless idle loop of Mira, the gothic girl in the supplied image. Keep her identity, hair, eyes, fangs, clothing, lighting, background, and camera framing unchanged. Very subtle natural breathing, gentle blinking, tiny eye movement and an almost imperceptible head movement. Calm, alive, relaxed expression. No talking, no lip-sync, no speech, no subtitles, no text, no extra people, no camera movement, no morphing, no face distortion.",
-        ["start_image_url"] = dataUri,
-        ["duration"] = "5",
-        ["generate_audio"] = false,
-        ["negative_prompt"] = "talking, speech, lip-sync, face distortion, identity change, extra people, subtitles, text, camera shake, zoom, warped eyes, warped mouth"
-    };
-    var response = await http.PostAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",
-        new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
-    var responseText = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return Results.Content(responseText, "application/json", Encoding.UTF8, (int)response.StatusCode);
-    var requestId = JsonNode.Parse(responseText)?["request_id"]?.ToString();
-    if (string.IsNullOrWhiteSpace(requestId)) return Results.BadRequest(new { error = "fal.ai did not return a request id.", details = responseText });
-    for (var n = 0; n < 90; n++)
-    {
-        await Task.Delay(2000);
-        var status = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}/status");
-        var statusText = await status.Content.ReadAsStringAsync();
-        if (statusText.Contains("COMPLETED", StringComparison.OrdinalIgnoreCase))
-        {
-            var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
-            var resultText = await result.Content.ReadAsStringAsync();
-            var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
-            if (string.IsNullOrWhiteSpace(url)) return Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
-            var file = await CacheVideoAsync(url, "idle");
-            return Results.Ok(new { url = "/api/media/" + file });
-        }
-        if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase))
-            return Results.BadRequest(new { error = "fal.ai idle video generation failed.", details = statusText });
-    }
-    return Results.StatusCode(504);
+    var key=LoadConfig()["replicateApiKey"]?.ToString();
+    if(string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error="Replicate API key is missing. Open Setup." });
+    var imagePath=Path.Combine(root,"luna mouth closed.png");
+    if(!File.Exists(imagePath)) return Results.NotFound(new { error="luna mouth closed.png was not packaged beside Mira.exe." });
+    try{
+        var imageUrl=await UploadReplicateImageAsync(key,imagePath);
+        var videoUrl=await GenerateReplicateVideoAsync(key,imageUrl,"Animate this portrait subtly: gentle breathing, natural blinking, tiny eye movement and slight head movement. Keep exact identity, hair, eyes, fangs, clothing, lighting, background and framing unchanged. No talking, no lip sync, no text.");
+        var file=await CacheVideoAsync(videoUrl,"idle");
+        return Results.Ok(new { url="/api/media/"+file });
+    }catch(Exception ex){return Results.BadRequest(new {error=ex.Message});}
 });
-
 app.MapPost("/api/video", async (HttpRequest request) =>
 {
-    var key = LoadConfig()["falKey"]?.ToString();
-    if (string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error = "fal.ai key is missing. Open Setup." });
-    var body = await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
-    var spoken = body?["text"]?.ToString()?.Trim() ?? "";
-    if (string.IsNullOrWhiteSpace(spoken)) return Results.BadRequest(new { error = "Mira reply text is missing." });
-    var imagePath = Path.Combine(root, "luna mouth closed.png");
-    if (!File.Exists(imagePath)) return Results.NotFound(new { error = "luna mouth closed.png was not packaged beside Mira.exe." });
-    var dataUri = "data:image/png;base64," + Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath));
-    using var http = new HttpClient();
-    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", key);
-    var payload = new JsonObject {
-        ["prompt"] = "Mira, the gothic girl in the supplied image, is speaking directly to the viewer. Animate natural facial acting that matches this exact spoken line: " + JsonSerializer.Serialize(spoken) + ". Natural blinking, subtle breathing, expressive eyes, small head movement, accurate mouth movement, stable identity. Preserve her appearance and framing. No subtitles, no text, no extra people, no face distortion, no camera shake.",
-        ["start_image_url"] = dataUri, ["duration"] = Math.Clamp((int)Math.Ceiling(spoken.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length / 2.25), 3, 15).ToString(), ["generate_audio"] = false,
-        ["negative_prompt"] = "face distortion, identity change, extra people, subtitles, text, warped eyes, warped mouth, camera shake"
-    };
-    var response = await http.PostAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",
-        new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
-    var responseText = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return Results.Content(responseText, "application/json", Encoding.UTF8, (int)response.StatusCode);
-    var requestId = JsonNode.Parse(responseText)?["request_id"]?.ToString();
-    if (string.IsNullOrWhiteSpace(requestId)) return Results.BadRequest(new { error = "fal.ai did not return a request id.", details = responseText });
-    for (var i = 0; i < 90; i++)
-    {
-        await Task.Delay(2000);
-        var status = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}/status");
-        var statusText = await status.Content.ReadAsStringAsync();
-        if (statusText.Contains("COMPLETED", StringComparison.OrdinalIgnoreCase))
-        {
-            var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
-            var resultText = await result.Content.ReadAsStringAsync();
-            var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
-            if (string.IsNullOrWhiteSpace(url)) return Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
-            var file = await CacheVideoAsync(url, "reply");
-            return Results.Ok(new { url = "/api/media/" + file });
-        }
-        if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase)) return Results.BadRequest(new { error = "fal.ai video generation failed.", details = statusText });
-    }
-    return Results.StatusCode(504);
+    var key=LoadConfig()["replicateApiKey"]?.ToString();
+    if(string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error="Replicate API key is missing. Open Setup." });
+    var body=await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
+    var spoken=body?["text"]?.ToString()?.Trim()??"";
+    if(string.IsNullOrWhiteSpace(spoken)) return Results.BadRequest(new {error="Mira reply text is missing."});
+    var imagePath=Path.Combine(root,"luna mouth closed.png");
+    if(!File.Exists(imagePath)) return Results.NotFound(new {error="luna mouth closed.png was not packaged beside Mira.exe."});
+    try{
+        var imageUrl=await UploadReplicateImageAsync(key,imagePath);
+        var videoUrl=await GenerateReplicateVideoAsync(key,imageUrl,"Mira is speaking naturally. Animate subtle facial acting and mouth movement appropriate for this exact spoken line: "+spoken+". Natural blinking, expressive eyes and gentle head movement. Preserve identity and framing. No subtitles, no text, no extra people, no face distortion.");
+        var file=await CacheVideoAsync(videoUrl,"reply");
+        return Results.Ok(new {url="/api/media/"+file});
+    }catch(Exception ex){return Results.BadRequest(new {error=ex.Message});}
 });
-
 app.MapFallback(async context =>
 {
     var requestPath = context.Request.Path.Value ?? "/";
