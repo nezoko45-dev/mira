@@ -7,6 +7,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build React + Tailwind frontend
+        shell: pwsh
+        run: |
+          npm install
+          npm run build
+          if (!(Test-Path dist/index.html)) { throw "React build did not produce dist/index.html" }
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
@@ -17,9 +27,10 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path publish/Mira.exe)) { throw "Mira.exe was not produced" }
+          Copy-Item "dist/*" "publish" -Recurse -Force
           Copy-Item "luna mouth closed.png" "publish/luna mouth closed.png" -Force
+          if (!(Test-Path "publish/index.html")) { throw "React index.html was not copied" }
           if (!(Test-Path "publish/luna mouth closed.png")) { throw "luna mouth closed.png was not copied" }
-          if (!(Test-Path "publish/index.html")) { throw "index.html was not published" }
       - name: Zip Windows app
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath Mira-Windows.zip -Force
