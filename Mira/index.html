@@ -108,6 +108,23 @@ async function makeVideo(text){
   };
 }
 
+let deepgramTeardown=null;
+let reconnectTimer=null;
+let reconnecting=false;
+
+function scheduleReconnect(reason){
+  if(reconnecting || reconnectTimer) return;
+  reconnecting=true;
+  setStatus('Mira is reconnecting…');
+  reconnectTimer=setTimeout(async()=>{
+    reconnectTimer=null;
+    reconnecting=false;
+    try{ if(deepgramTeardown) deepgramTeardown(); }catch{}
+    deepgramTeardown=null;
+    await start();
+  },1500);
+}
+
 async function start(){
   try{
     const c=await fetch('/api/config').then(r=>r.json());
@@ -120,11 +137,14 @@ async function start(){
     setStatus('Ready — press the microphone to talk');
     loadIdleVideo();
     if(!window.DeepgramAgent) throw new Error('Deepgram voice widget failed to load.');
-    DeepgramAgent.init({
+    if(deepgramTeardown){ try{deepgramTeardown();}catch{} deepgramTeardown=null; }
+    deepgramTeardown=DeepgramAgent.init({
       tokenFactory:()=>fetch('/api/deepgram-token').then(async r=>{
         if(!r.ok) throw new Error(await r.text());
         return r.text();
       }),
+      reconnect:{enabled:true,maxAttempts:999999,baseDelay:500,maxDelay:5000,jitter:false},
+      keepAliveInterval:8000,
       agent:{
         language:'en',
         greeting:'Hi, I’m Mira. It’s nice to hear your voice.',
@@ -148,8 +168,8 @@ async function start(){
       },
       on:{
         onConnect:()=>setStatus('Listening — Mira is here'),
-        onDisconnect:()=>setStatus('Disconnected'),
-        onError:e=>{console.error(e);setStatus('Voice connection error')},
+        onDisconnect:()=>scheduleReconnect('disconnect'),
+        onError:e=>{console.error(e);setStatus('Voice connection error');scheduleReconnect('error')},
         onAgentError:e=>{console.error(e);setStatus('Mira reported an error')},
         onMessage:m=>{
           if(!m || !m.content) return;
