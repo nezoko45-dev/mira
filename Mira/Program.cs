@@ -1,12 +1,179 @@
-using System.Text;using System.Text.Json;using System.Text.Json.Nodes;
-var builder=WebApplication.CreateBuilder(args);var app=builder.Build();app.Urls.Add("http://127.0.0.1:8787");
-var root=AppContext.BaseDirectory;var dir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Mira");Directory.CreateDirectory(dir);var file=Path.Combine(dir,"config.json");
-JsonObject C(){try{return JsonNode.Parse(File.ReadAllText(file))?.AsObject()??new JsonObject();}catch{return new JsonObject();}}
-void Save(JsonObject o)=>File.WriteAllText(file,o.ToJsonString(new JsonSerializerOptions{WriteIndented=true}));
-app.MapGet("/api/config",()=>{var c=C();return Results.Json(new{ready=!string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString())&&!string.IsNullOrWhiteSpace(c["agentId"]?.ToString()),agentId=c["agentId"]?.ToString()});});
-app.MapPost("/api/setup",async(HttpRequest q)=>{var b=await JsonSerializer.DeserializeAsync<JsonObject>(q.Body);if(b==null)return Results.BadRequest(new{error="Invalid setup"});var c=C();c["deepgramApiKey"]=b["deepgramApiKey"]?.ToString();c["agentId"]=b["deepgramAgentId"]?.ToString();c["falKey"]=b["falKey"]?.ToString();Save(c);return Results.Ok(new{ok=true});});
-app.MapGet("/api/deepgram-token",async()=>{var k=C()["deepgramApiKey"]?.ToString();if(string.IsNullOrWhiteSpace(k))return Results.BadRequest(new{error="Deepgram key missing"});using var h=new HttpClient();h.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Token",k);var r=await h.PostAsync("https://api.deepgram.com/v1/auth/grant",new StringContent("{\"ttl_seconds\":300}",Encoding.UTF8,"application/json"));var s=await r.Content.ReadAsStringAsync();if(!r.IsSuccessStatusCode)return Results.StatusCode((int)r.StatusCode);try{return Results.Text(JsonNode.Parse(s)?["access_token"]?.ToString()??s,"text/plain");}catch{return Results.Text(s,"text/plain");}});
-app.MapPost("/api/video",async()=>{var k=C()["falKey"]?.ToString();if(string.IsNullOrWhiteSpace(k))return Results.BadRequest(new{error="fal.ai key missing"});var img=Path.Combine(root,"luna mouth closed.png");if(!File.Exists(img))return Results.NotFound(new{error="Mira image missing"});var data="data:image/png;base64,"+Convert.ToBase64String(await File.ReadAllBytesAsync(img));using var h=new HttpClient();h.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Key",k);var p=new JsonObject{{"prompt","Mira gently talks directly to the camera. Natural blinking, subtle head movement, soft breathing, stable face and identity, gothic romantic atmosphere, cinematic realistic motion."},{"start_image_url",data},{"duration","5"},{"generate_audio",false}};var r=await h.PostAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",new StringContent(p.ToJsonString(),Encoding.UTF8,"application/json"));var s=await r.Content.ReadAsStringAsync();if(!r.IsSuccessStatusCode)return Results.StatusCode((int)r.StatusCode);var id=JsonNode.Parse(s)?["request_id"]?.ToString();if(string.IsNullOrWhiteSpace(id))return Results.BadRequest(new{error="fal queue did not return request id"});for(var i=0;i<90;i++){await Task.Delay(2000);var sr=await h.GetAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/"+id+"/status");var ss=await sr.Content.ReadAsStringAsync();if(ss.Contains("COMPLETED")){var rr=await h.GetAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/"+id);var rs=await rr.Content.ReadAsStringAsync();var u=JsonNode.Parse(rs)?["video"]?["url"]?.ToString();if(u!=null)return Results.Ok(new{url=u});}if(ss.Contains("FAILED"))break;}return Results.Problem("fal.ai video failed or timed out");});
-app.MapGet("/api/health",()=>Results.Ok(new{ok=true}));
-app.MapFallback(async ctx=>{var rel=(ctx.Request.Path.Value??"/").TrimStart('/');if(rel=="")rel="index.html";var full=Path.GetFullPath(Path.Combine(root,rel.Replace('/','\\')));if(!full.StartsWith(Path.GetFullPath(root),StringComparison.OrdinalIgnoreCase)||!File.Exists(full)){ctx.Response.StatusCode=404;return;}ctx.Response.ContentType=Path.GetExtension(full).ToLowerInvariant() switch{".html"=>"text/html",".png"=>"image/png",".css"=>"text/css",".js"=>"text/javascript",_=>"application/octet-stream"};await ctx.Response.SendFileAsync(full);});
+using System.Diagnostics;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://127.0.0.1:8787");
+var app = builder.Build();
+
+var root = AppContext.BaseDirectory;
+var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Mira");
+Directory.CreateDirectory(dataDir);
+var configFile = Path.Combine(dataDir, "config.json");
+
+JsonObject LoadConfig()
+{
+    try { return JsonNode.Parse(File.ReadAllText(configFile))?.AsObject() ?? new JsonObject(); }
+    catch { return new JsonObject(); }
+}
+void SaveConfig(JsonObject c) =>
+    File.WriteAllText(configFile, c.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+
+app.MapGet("/api/config", () =>
+{
+    var c = LoadConfig();
+    return Results.Ok(new
+    {
+        ready = !string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString()) &&
+                !string.IsNullOrWhiteSpace(c["agentId"]?.ToString()),
+        hasFal = !string.IsNullOrWhiteSpace(c["falKey"]?.ToString()),
+        agentId = c["agentId"]?.ToString() ?? ""
+    });
+});
+
+app.MapPost("/api/setup", async (HttpRequest request) =>
+{
+    var body = await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
+    if (body is null) return Results.BadRequest(new { error = "Invalid setup data." });
+
+    var c = LoadConfig();
+    foreach (var key in new[] { "deepgramApiKey", "agentId", "falKey" })
+        if (body[key] is not null) c[key] = body[key]!.ToString().Trim();
+
+    SaveConfig(c);
+    return Results.Ok(new { ok = true });
+});
+
+app.MapGet("/api/deepgram-token", async () =>
+{
+    var key = LoadConfig()["deepgramApiKey"]?.ToString();
+    if (string.IsNullOrWhiteSpace(key))
+        return Results.BadRequest(new { error = "Deepgram API key is missing. Open Setup." });
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", key);
+    using var content = new StringContent("{\"ttl_seconds\":300}", Encoding.UTF8, "application/json");
+    var response = await http.PostAsync("https://api.deepgram.com/v1/auth/grant", content);
+    var text = await response.Content.ReadAsStringAsync();
+
+    if (!response.IsSuccessStatusCode)
+        return Results.StatusCode((int)response.StatusCode);
+
+    var token = JsonNode.Parse(text)?["access_token"]?.ToString();
+    return string.IsNullOrWhiteSpace(token)
+        ? Results.BadRequest(new { error = "Deepgram did not return a temporary token.", details = text })
+        : Results.Text(token, "text/plain");
+});
+
+app.MapPost("/api/video", async () =>
+{
+    var key = LoadConfig()["falKey"]?.ToString();
+    if (string.IsNullOrWhiteSpace(key))
+        return Results.BadRequest(new { error = "fal.ai key is missing. Open Setup." });
+
+    var imagePath = Path.Combine(root, "luna mouth closed.png");
+    if (!File.Exists(imagePath))
+        return Results.NotFound(new { error = "luna mouth closed.png was not packaged beside Mira.exe." });
+
+    var dataUri = "data:image/png;base64," + Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath));
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", key);
+
+    var payload = new JsonObject
+    {
+        ["prompt"] = "A gothic girl gently talks directly to the camera. Natural blinking, subtle breathing, small head movement, stable identity, realistic facial motion, cinematic gothic romantic atmosphere.",
+        ["start_image_url"] = dataUri,
+        ["duration"] = "5"
+    };
+
+    var response = await http.PostAsync(
+        "https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",
+        new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
+    var responseText = await response.Content.ReadAsStringAsync();
+
+    if (!response.IsSuccessStatusCode)
+        return Results.Content(responseText, "application/json", Encoding.UTF8, (int)response.StatusCode);
+
+    var requestId = JsonNode.Parse(responseText)?["request_id"]?.ToString();
+    if (string.IsNullOrWhiteSpace(requestId))
+        return Results.BadRequest(new { error = "fal.ai did not return a request id.", details = responseText });
+
+    for (var i = 0; i < 90; i++)
+    {
+        await Task.Delay(2000);
+        var status = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}/status");
+        var statusText = await status.Content.ReadAsStringAsync();
+
+        if (statusText.Contains("COMPLETED", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
+            var resultText = await result.Content.ReadAsStringAsync();
+            var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
+
+            if (!string.IsNullOrWhiteSpace(url))
+                return Results.Ok(new { url });
+            return Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+        }
+
+        if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase))
+            return Results.BadRequest(new { error = "fal.ai video generation failed.", details = statusText });
+    }
+
+    return Results.StatusCode(504);
+});
+
+app.MapFallback(async context =>
+{
+    var requestPath = context.Request.Path.Value ?? "/";
+    var relative = requestPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+    var full = relative.Length == 0
+        ? Path.Combine(root, "index.html")
+        : Path.GetFullPath(Path.Combine(root, relative));
+
+    if (!full.StartsWith(Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
+    {
+        context.Response.StatusCode = 404;
+        return;
+    }
+
+    context.Response.ContentType = Path.GetExtension(full).ToLowerInvariant() switch
+    {
+        ".html" => "text/html; charset=utf-8",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".css" => "text/css; charset=utf-8",
+        ".js" => "text/javascript; charset=utf-8",
+        _ => "application/octet-stream"
+    };
+    await context.Response.SendFileAsync(full);
+});
+
+var url = "http://127.0.0.1:8787/";
+_ = Task.Run(async () =>
+{
+    await Task.Delay(900);
+    try
+    {
+        var chromeCandidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Google", "Chrome", "Application", "chrome.exe")
+        };
+        var chrome = chromeCandidates.FirstOrDefault(File.Exists);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = chrome ?? url,
+            Arguments = chrome is null ? "" : url,
+            UseShellExecute = true
+        });
+    }
+    catch { }
+});
+
 app.Run();
