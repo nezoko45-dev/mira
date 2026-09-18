@@ -20,23 +20,27 @@ if errorlevel 1 (
 echo Node.js found.
 echo.
 
-if not exist "node_modules\express" goto install\nif not exist "node_modules\@fal-ai\client" goto install\ngoto installed\n\n:install
-  echo Installing Mira dependencies...
-  echo This may take a minute.
-  echo.
-  call npm.cmd install
-  if errorlevel 1 (
-    echo.
-    echo ERROR: Dependency installation failed.
-    echo Check your internet connection and try again.
-    pause
-    exit /b 1
-  )
-  echo.
-  echo Dependencies installed.
-  echo.
-)
+if not exist "node_modules\express" goto install
+if not exist "node_modules\@fal-ai\client" goto install
+goto installed
 
+:install
+echo Installing Mira dependencies...
+echo This may take a minute.
+echo.
+call npm.cmd install
+if errorlevel 1 (
+  echo.
+  echo ERROR: Dependency installation failed.
+  echo Check your internet connection and try again.
+  pause
+  exit /b 1
+)
+echo.
+echo Dependencies installed.
+echo.
+
+:installed
 echo Starting Mira server...
 start "Mira Server" /min cmd /c "node server.js"
 
