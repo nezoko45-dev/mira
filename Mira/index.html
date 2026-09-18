@@ -1,59 +1,155 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mira</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mira — AI Companion</title>
+<script src="https://cdn.deepgram.com/widgets/latest/widget.umd.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#08060b;color:#fff;font:15px system-ui,sans-serif}
-main{max-width:1120px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:30px;font-weight:900}.logo b{color:#ff4f9a}.state{padding:8px 13px;border:1px solid #4d3157;border-radius:99px}
-.grid{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:16px}
-.stage,.panel{background:#140e19;border:1px solid #382642;border-radius:24px;overflow:hidden}
-.stage{height:calc(100vh - 100px);min-height:560px;position:relative}.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.stage video[hidden],.stage img[hidden]{display:none}.caption{position:absolute;left:18px;bottom:18px;text-shadow:0 2px 14px #000}.caption h1{margin:0;font-size:30px}
-.panel{padding:15px;margin-bottom:14px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.btn{border:1px solid #5a3864;border-bottom:3px solid #1b0e21;border-radius:14px;padding:13px;background:#291a31;color:#fff;font-weight:900;cursor:pointer;transition:.12s}
-.btn:hover{filter:brightness(1.2);transform:translateY(-2px)}.btn:active{transform:translateY(2px);border-bottom-width:1px}
-.primary{background:linear-gradient(135deg,#ff4f9a,#8b43ff)}.active{outline:2px solid #ff65a5;box-shadow:0 0 24px #ff4f9a66}
-.btn:disabled{opacity:.45;cursor:not-allowed}.status{color:#b9a9bb;line-height:1.45;margin-top:12px;min-height:22px}
-.chat{height:230px;overflow:auto;margin:10px 0}.msg{background:#24172c;border-radius:13px;padding:9px;margin:7px 0}.user{background:#5a2349;margin-left:25px}
-.form{display:flex;gap:7px}.form input,.setup input{width:100%;background:#0b080e;border:1px solid #49324f;border-radius:11px;color:#fff;padding:11px}
-.modal{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:18px}.modal[hidden]{display:none}.box{width:min(520px,100%);background:#140e19;border:1px solid #54355d;border-radius:22px;padding:20px}.box h2{margin-top:0}.box label{display:block;margin:12px 0 5px;color:#cbbdcc}.row{display:flex;gap:8px;margin-top:15px}.row .btn{flex:1}
-@media(max-width:800px){.grid{grid-template-columns:1fr}.stage{height:65vh;min-height:450px}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 10%,#241326 0,#0b0810 45%,#050407 100%);color:#f8eef8;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;display:flex;justify-content:center}
+.app{width:min(1100px,100%);padding:28px 20px 50px}
+header{text-align:center;margin-bottom:20px}
+h1{margin:0;font-size:34px;letter-spacing:.04em}
+.sub{color:#bcaabd;margin-top:6px}
+.card{background:rgba(18,12,22,.86);border:1px solid #3b293f;border-radius:24px;box-shadow:0 20px 70px rgba(0,0,0,.45);overflow:hidden}
+.stage{position:relative;min-height:520px;display:grid;place-items:center;background:#09070b}
+.stage img,.stage video{width:100%;height:520px;object-fit:cover;display:block}
+.stage video{position:absolute;inset:0}
+.placeholder{position:absolute;bottom:16px;left:16px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.55);font-size:12px;color:#d8c9da}
+.bottom{padding:20px}
+.status{display:flex;align-items:center;gap:10px;color:#cdb8cf;font-size:14px;margin-bottom:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:#8b4d9c;box-shadow:0 0 14px #9b5daf}
+#transcript{min-height:58px;color:#eee0ee;font-size:16px;line-height:1.5;margin-bottom:16px}
+.setup{display:none;padding:20px;border-top:1px solid #3b293f}
+.setup.show{display:block}
+.setup h2{margin:0 0 12px;font-size:18px}
+.grid{display:grid;gap:10px}
+input{width:100%;padding:12px 13px;background:#0d0a10;border:1px solid #49374c;color:white;border-radius:12px;outline:none}
+input:focus{border-color:#9e65ad}
+button{border:0;border-radius:12px;padding:12px 16px;background:#9a5aad;color:white;font-weight:700;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+.hint{font-size:12px;color:#9e8ca0;margin-top:10px}
+#agent-container{min-height:100px}
 </style>
 </head>
 <body>
-<main>
-<div class="top"><div class="logo">Mira <b>EXE</b></div><div class="state" id="state">STARTING</div></div>
+<main class="app">
+<header><h1>Mira</h1><div class="sub">your voice companion</div></header>
+<section class="card">
+<div class="stage">
+<img src="luna%20mouth%20closed.png" id="still" alt="Mira">
+<video id="miraVideo" playsinline autoplay muted></video>
+<div class="placeholder" id="videoStatus">Waiting for Mira to speak…</div>
+</div>
+<div class="bottom">
+<div class="status"><span class="dot"></span><span id="status">Loading Mira…</span></div>
+<div id="transcript">Start the conversation and Mira will answer with voice.</div>
+<div id="agent-container"></div>
+</div>
+<div class="setup" id="setup">
+<h2>Mira setup</h2>
 <div class="grid">
-<section class="stage"><img id="mira" src="/luna%20mouth%20closed.png"><video id="video" hidden autoplay muted playsinline loop></video><div class="caption"><h1>Mira</h1><small id="hint">Local Windows backend</small></div></section>
-<aside>
-<div class="panel"><div class="buttons">
-<button class="btn primary" id="voice">🎙 Start Voice</button><button class="btn" id="stop" disabled>■ Stop</button>
-<button class="btn" id="animate">✨ Animate</button><button class="btn" id="setup">⚙ Setup</button>
-</div><div class="status" id="status">Connecting to Mira.exe…</div></div>
-<div class="panel"><b>Chat</b><div class="chat" id="chat"></div>
-<form class="form" id="form"><input id="text" placeholder="Talk to Mira…"><button class="btn primary">Send</button></form></div>
-</aside></div></main>
-<div class="modal" id="modal" hidden><div class="box setup"><h2>Mira Setup</h2>
-<p>These keys stay on this Windows PC in Mira's local app data.</p>
-<label>Deepgram API key</label><input id="dgKey" type="password" placeholder="Deepgram key">
-<label>Deepgram Agent ID</label><input id="agentId" placeholder="Agent configuration UUID">
-<label>fal.ai API key</label><input id="falKey" type="password" placeholder="fal key">
-<div class="row"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="save">Save Setup</button></div>
-</div></div>
+<input id="dgKey" type="password" placeholder="Deepgram API key">
+<input id="agentId" placeholder="Deepgram Agent ID">
+<input id="falKey" type="password" placeholder="fal.ai key">
+<button id="save">Save & start Mira</button>
+</div>
+<div class="hint">Keys are saved by the local Mira server, not exposed in the page source.</div>
+</div>
+</section>
+</main>
 <script>
-const $=id=>document.getElementById(id);let session=null,mic=null,player=null,dg=null;
-function st(x){$('state').textContent=x.toUpperCase();$('status').textContent=x;$('hint').textContent=x}
-function add(role,text){if(!text)return;const d=document.createElement('div');d.className='msg '+(role==='user'?'user':'');d.textContent=text;$('chat').appendChild(d);$('chat').scrollTop=1e9}
-async function config(){return (await fetch('/api/config')).json()}
-$('setup').onclick=async()=>{const c=await config();$('agentId').value=c.agentId||'';$('modal').hidden=false}
-$('cancel').onclick=()=>$('modal').hidden=true;
-$('save').onclick=async()=>{try{const r=await fetch('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deepgramApiKey:$('dgKey').value,deepgramAgentId:$('agentId').value,falKey:$('falKey').value})});if(!r.ok)throw Error(await r.text());$('modal').hidden=true;st('Setup saved. Ready.')}catch(e){st('Setup failed: '+e.message)}};
-$('voice').onclick=async()=>{const b=$('voice');b.disabled=true;st('Starting voice…');try{const c=await config();if(!c.ready)throw Error('Open Setup and enter the Deepgram key + Agent ID.');if(!dg)dg=await import('https://cdn.jsdelivr.net/npm/@deepgram/agents/+esm');session=new dg.AgentSession({auth:{tokenFactory:async()=>{const r=await fetch('/api/deepgram-token');if(!r.ok)throw Error(await r.text());return r.text()}},agent:c.agentId,audio:{input:{encoding:'linear16',sampleRate:16000},output:{encoding:'linear16',sampleRate:24000}}});player=new dg.AgentPlayer({sampleRate:24000});session.on('audio',x=>player.queue(x));session.on('user-started-speaking',()=>player.interrupt());session.on('conversation-text',x=>add(x.role==='user'?'user':'assistant',x.content));session.on('error',x=>st('Deepgram error: '+(x.description||x.code||'unknown')));session.on('sdk-error',x=>st('Voice error: '+x.message));await session.connect();mic=new dg.AgentMicrophone(x=>session.sendAudio(x),{sampleRate:16000,echoCancellation:true,noiseSuppression:true,autoGainControl:true});await mic.start();$('stop').disabled=false;b.classList.add('active');st('Mira is listening')}catch(e){b.disabled=false;st('Voice failed: '+e.message)}};
-$('stop').onclick=()=>{try{mic?.stop()}catch{}try{session?.disconnect()}catch{}try{player?.dispose()}catch{}mic=null;session=null;player=null;$('voice').disabled=false;$('stop').disabled=true;$('voice').classList.remove('active');st('Voice stopped')};
-$('animate').onclick=async()=>{const b=$('animate');b.disabled=true;b.classList.add('active');st('Generating Mira video…');try{const r=await fetch('/api/video',{method:'POST'});const j=await r.json();if(!r.ok)throw Error(j.error||j.details||'fal.ai request failed');$('video').src=j.url+'?t='+Date.now();$('video').hidden=false;$('mira').hidden=true;await $('video').play();st('Mira animation playing')}catch(e){st('Animation failed: '+e.message)}finally{b.disabled=false;b.classList.remove('active')}};
-$('form').onsubmit=e=>{e.preventDefault();const t=$('text').value.trim();if(!t)return;if(!session){st('Start Voice first');return}add('user',t);session.injectUserMessage(t);$('text').value='';st('Mira is thinking…')};
-fetch('/api/health').then(async()=>{const c=await config();st(c.ready?'EXE connected':'EXE connected — open Setup');}).catch(()=>st('Mira.exe is not running'));
+const $=id=>document.getElementById(id);
+let videoBusy=false;
+let videoQueue=Promise.resolve();
+
+function setStatus(t){$('status').textContent=t}
+function enqueueVideo(text){
+  videoQueue=videoQueue.then(()=>makeVideo(text)).catch(e=>{
+    console.error(e); $('videoStatus').textContent='Video generation failed';
+  });
+}
+async function makeVideo(text){
+  if(!text || !text.trim()) return;
+  videoBusy=true;
+  $('videoStatus').textContent='Mira is generating a video…';
+  const r=await fetch('/api/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error||'Video generation failed');
+  const v=$('miraVideo');
+  v.src=j.url;
+  v.load();
+  try{await v.play()}catch{}
+  $('videoStatus').textContent='Mira is speaking';
+  videoBusy=false;
+}
+
+async function start(){
+  try{
+    const c=await fetch('/api/config').then(r=>r.json());
+    if(!c.ready){
+      $('setup').classList.add('show');
+      setStatus('Add your API keys below');
+      return;
+    }
+    $('setup').classList.remove('show');
+    setStatus('Ready — press the microphone to talk');
+    DeepgramAgent.init({
+      tokenFactory:()=>fetch('/api/deepgram-token').then(async r=>{
+        if(!r.ok) throw new Error(await r.text());
+        return r.text();
+      }),
+      agent:c.deepgramAgentId,
+      layout:'button',
+      buttonId:'mira-talk-button',
+      showTranscript:true,
+      showMicToggle:true,
+      showSpeakerToggle:true,
+      showTextInput:true,
+      vad:true,
+      colorScheme:'dark',
+      text:{name:'Mira',startLabel:'Talk to Mira',stopLabel:'End conversation',connectingLabel:'Connecting…',inputPlaceholder:'Talk to Mira…',emptyStateHint:'Press start to begin talking.'},
+      overrides:{
+        systemPrompt:'You are Mira, a warm gothic AI companion. Speak naturally and conversationally. Keep spoken replies concise enough for a short video clip. Do not use markdown, stage directions, or emojis. Your voice should sound like a friendly Filipino English speaker.',
+        greeting:'Hi, I’m Mira. It’s nice to hear your voice.'
+      },
+      on:{
+        onConnect:()=>setStatus('Listening — Mira is here'),
+        onDisconnect:()=>setStatus('Disconnected'),
+        onError:e=>{console.error(e);setStatus('Voice connection error')},
+        onAgentError:e=>{console.error(e);setStatus('Mira reported an error')},
+        onMessage:m=>{
+          if(!m || !m.content) return;
+          if(m.role==='user'){
+            $('transcript').textContent='You: '+m.content;
+          }else if(m.role==='assistant'){
+            $('transcript').textContent='Mira: '+m.content;
+            enqueueVideo(m.content);
+          }
+        },
+        onAgentStartedSpeaking:()=>setStatus('Mira is speaking')
+      }
+    });
+  }catch(e){
+    console.error(e);
+    setStatus(e.message||'Could not start Mira');
+  }
+}
+
+$('save').onclick=async()=>{
+  const body={deepgramApiKey:$('dgKey').value,deepgramAgentId:$('agentId').value,falKey:$('falKey').value};
+  const r=await fetch('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok){alert(j.error||'Setup failed');return}
+  location.reload();
+};
+
+const talk=document.createElement('button');
+talk.id='mira-talk-button';
+talk.textContent='Talk to Mira';
+$('agent-container').appendChild(talk);
+start();
 </script>
-</body></html>
+</body>
+</html>
