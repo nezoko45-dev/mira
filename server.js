@@ -1,8 +1,104 @@
-const express=require("express");const path=require("path");const fs=require("fs");const app=express();const PORT=process.env.PORT||8787;const ROOT=__dirname;const CONFIG_FILE=path.join(ROOT,"mira-config.json");app.use(express.json({limit:"50kb"}));app.use((req,res,next)=>{res.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");res.set("Pragma","no-cache");res.set("Expires","0");next()});app.use(express.static(ROOT,{etag:false,lastModified:false}));
-function config(){let x={};try{x=JSON.parse(fs.readFileSync(CONFIG_FILE,"utf8"))}catch{};return{deepgramApiKey:process.env.DEEPGRAM_API_KEY||x.deepgramApiKey||"",deepgramAgentId:process.env.DEEPGRAM_AGENT_ID||x.deepgramAgentId||"",falKey:process.env.FAL_KEY||x.falKey||""}}
-app.get("/api/config",(q,r)=>{const c=config();c.deepgramApiKey="";c.falKey="";c.ready=!!(c.deepgramAgentId&&config().deepgramApiKey&&config().falKey);r.json(c)});
-app.post("/api/setup",(q,r)=>{try{const old=config(),body=q.body||{};const next={deepgramApiKey:String(body.deepgramApiKey||old.deepgramApiKey),deepgramAgentId:String(body.deepgramAgentId||old.deepgramAgentId),falKey:String(body.falKey||old.falKey)};if(!next.deepgramApiKey||!next.deepgramAgentId||!next.falKey)return r.status(400).json({error:"Please fill in all three fields."});fs.writeFileSync(CONFIG_FILE,JSON.stringify(next,null,2),"utf8");r.json({ok:true})}catch(e){r.status(500).json({error:"Could not save Mira settings."})}});
-app.get("/api/deepgram-token",async(q,r)=>{const c=config();if(!c.deepgramApiKey)return r.status(500).send("Set your Deepgram API key in Mira Setup.");try{const x=await fetch("https://api.deepgram.com/v1/auth/grant",{method:"POST",headers:{Authorization:"Token "+c.deepgramApiKey,"Content-Type":"application/json"},body:JSON.stringify({ttl_seconds:300})});const j=await x.json();if(!x.ok)return r.status(x.status).send(j.err_msg||"Deepgram token failed");r.type("text").send(j.access_token)}catch(e){r.status(500).send("Deepgram token service failed") }});
-app.get("/api/video/status",(q,r)=>r.json({configured:!!config().falKey,provider:"Kling Video 3 via fal"}));
-app.post("/api/video",async(q,r)=>{const c=config();if(!c.falKey)return r.status(500).json({error:"Set your fal.ai key in Mira Setup first."});try{const{fal}=require("@fal-ai/client");fal.config({credentials:c.falKey});const file=path.join(ROOT,"luna mouth closed.png");const b64=fs.readFileSync(file).toString("base64");const dataUri="data:image/png;base64,"+b64;const result=await fal.subscribe("fal-ai/kling-video/v3/standard/image-to-video",{input:{prompt:"Mira gently talks directly to the camera. Natural blinking, subtle head movement, soft breathing, small facial expressions, stable face and identity, gothic romantic dating-app atmosphere, cinematic realistic motion, no camera shake.",start_image_url:dataUri,duration:"5",aspect_ratio:"16:9",generate_audio:false},logs:false});const url=result?.data?.video?.url;if(!url)throw Error("Kling finished without returning a video URL.");r.json({url})}catch(e){r.status(500).json({error:e?.message||"Image-to-video generation failed."})}});
-app.get("/{*splat}",(q,r)=>r.sendFile(path.join(ROOT,"index.html")));app.listen(PORT,()=>console.log("Mira: http://localhost:"+PORT));
+const express=require("express");
+const path=require("path");
+const fs=require("fs");
+const app=express();
+const PORT=process.env.PORT||8787;
+const ROOT=__dirname;
+const CONFIG_FILE=path.join(ROOT,"mira-config.json");
+
+app.use(express.json({limit:"100kb"}));
+app.use((req,res,next)=>{
+  res.set("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma","no-cache"); res.set("Expires","0"); next();
+});
+app.use(express.static(ROOT,{etag:false,lastModified:false}));
+
+function config(){
+  let x={};
+  try{x=JSON.parse(fs.readFileSync(CONFIG_FILE,"utf8"))}catch{}
+  return {
+    deepgramApiKey:process.env.DEEPGRAM_API_KEY||x.deepgramApiKey||"",
+    deepgramAgentId:process.env.DEEPGRAM_AGENT_ID||x.deepgramAgentId||"",
+    falKey:process.env.FAL_KEY||x.falKey||""
+  };
+}
+
+app.get("/api/config",(q,r)=>{
+  const c=config();
+  r.json({deepgramAgentId:c.deepgramAgentId,ready:!!(c.deepgramAgentId&&c.deepgramApiKey&&c.falKey)});
+});
+
+app.post("/api/setup",(q,r)=>{
+  try{
+    const old=config(), body=q.body||{};
+    const next={
+      deepgramApiKey:String(body.deepgramApiKey||old.deepgramApiKey),
+      deepgramAgentId:String(body.deepgramAgentId||old.deepgramAgentId),
+      falKey:String(body.falKey||old.falKey)
+    };
+    if(!next.deepgramApiKey||!next.deepgramAgentId||!next.falKey)
+      return r.status(400).json({error:"Please fill in all three fields."});
+    fs.writeFileSync(CONFIG_FILE,JSON.stringify(next,null,2),"utf8");
+    r.json({ok:true});
+  }catch(e){r.status(500).json({error:"Could not save Mira settings."})}
+});
+
+app.get("/api/deepgram-token",async(q,r)=>{
+  const c=config();
+  if(!c.deepgramApiKey)return r.status(500).send("Set your Deepgram API key in Mira Setup.");
+  try{
+    const x=await fetch("https://api.deepgram.com/v1/auth/grant",{
+      method:"POST",
+      headers:{Authorization:"Token "+c.deepgramApiKey,"Content-Type":"application/json"},
+      body:JSON.stringify({ttl_seconds:300})
+    });
+    const j=await x.json();
+    if(!x.ok)return r.status(x.status).send(j.err_msg||"Deepgram token failed");
+    r.type("text").send(j.access_token);
+  }catch(e){r.status(500).send("Deepgram token service failed")}
+});
+
+app.post("/api/video",async(q,r)=>{
+  const c=config();
+  if(!c.falKey)return r.status(500).json({error:"Set your fal.ai key in Mira Setup first."});
+  const text=String(q.body?.text||"").trim();
+  if(!text)return r.status(400).json({error:"No Mira reply text was supplied."});
+  try{
+    const {fal}=require("@fal-ai/client");
+    fal.config({credentials:c.falKey});
+    const file=path.join(ROOT,"luna mouth closed.png");
+    const dataUri="data:image/png;base64,"+fs.readFileSync(file).toString("base64");
+    const words=text.split(/\s+/).filter(Boolean).length;
+    const duration=String(Math.max(3,Math.min(15,Math.ceil(words/2.25))));
+    const safeText=text.slice(0,1800);
+    const prompt=[
+      "Mira, the gothic girl in the supplied image, is speaking directly to the viewer.",
+      "Animate her naturally while she delivers this exact spoken line:",
+      JSON.stringify(safeText),
+      "Match the visual acting to the meaning and emotion of the line.",
+      "Natural blinking, subtle breathing, realistic facial motion, gentle head movement, expressive eyes, accurate identity, stable face.",
+      "Keep her centered and preserve her hairstyle, clothing, gothic appearance, and composition.",
+      "No subtitles, no text on screen, no extra people, no face distortion, no camera shake."
+    ].join(" ");
+    const result=await fal.subscribe("fal-ai/kling-video/v3/standard/image-to-video",{
+      input:{
+        prompt,
+        start_image_url:dataUri,
+        duration,
+        aspect_ratio:"16:9",
+        generate_audio:false,
+        negative_prompt:"face distortion, identity change, extra people, subtitles, text, warped eyes, warped mouth, camera shake"
+      },
+      logs:false
+    });
+    const url=result?.data?.video?.url;
+    if(!url)throw Error("Kling finished without returning a video URL.");
+    r.json({url,duration});
+  }catch(e){
+    console.error(e);
+    r.status(500).json({error:e?.message||"Image-to-video generation failed."});
+  }
+});
+
+app.get("/{*splat}",(q,r)=>r.sendFile(path.join(ROOT,"index.html")));
+app.listen(PORT,()=>console.log("Mira: http://localhost:"+PORT));
