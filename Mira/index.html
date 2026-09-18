@@ -111,21 +111,32 @@ async function makeVideo(text){
 let deepgramTeardown=null;
 let reconnectTimer=null;
 let reconnecting=false;
+let reconnectDelay=1000;
+let idleStarted=false;
 
 function scheduleReconnect(reason){
   if(reconnecting || reconnectTimer) return;
   reconnecting=true;
-  setStatus('Mira is reconnecting…');
+  setStatus('Connection interrupted — reconnecting…');
+  const delay=Math.min(reconnectDelay,10000);
   reconnectTimer=setTimeout(async()=>{
     reconnectTimer=null;
-    reconnecting=false;
     try{ if(deepgramTeardown) deepgramTeardown(); }catch{}
     deepgramTeardown=null;
-    await start();
-  },1500);
+    try{
+      await start(true);
+      reconnectDelay=1000;
+    }catch(e){
+      console.error('Mira reconnect failed:',e);
+      reconnectDelay=Math.min(reconnectDelay*2,10000);
+    }finally{
+      reconnecting=false;
+      if(!deepgramTeardown) scheduleReconnect('retry');
+    }
+  },delay);
 }
 
-async function start(){
+async function start(isReconnect=false){
   try{
     const c=await fetch('/api/config').then(r=>r.json());
     if(!c.ready){
@@ -135,7 +146,7 @@ async function start(){
     }
     $('setup').classList.remove('show');
     setStatus('Ready — press the microphone to talk');
-    loadIdleVideo();
+    if(!idleStarted){ idleStarted=true; loadIdleVideo(); }
     if(!window.DeepgramAgent) throw new Error('Deepgram voice widget failed to load.');
     if(deepgramTeardown){ try{deepgramTeardown();}catch{} deepgramTeardown=null; }
     deepgramTeardown=DeepgramAgent.init({
@@ -167,10 +178,11 @@ async function start(){
         greeting:'Hi, I’m Mira. It’s nice to hear your voice.'
       },
       on:{
-        onConnect:()=>setStatus('Listening — Mira is here'),
-        onDisconnect:()=>scheduleReconnect('disconnect'),
-        onError:e=>{console.error(e);setStatus('Voice connection error');scheduleReconnect('error')},
-        onAgentError:e=>{console.error(e);setStatus('Mira reported an error')},
+        onConnect:()=>{ reconnectDelay=1000; setStatus('Listening — Mira is here'); },
+        onReconnecting:(attempt,delay)=>setStatus('Mira reconnecting… attempt '+attempt),
+        onDisconnect:(reason)=>{ console.warn('Deepgram disconnected:',reason); scheduleReconnect('disconnect'); },
+        onError:e=>{ console.error('Deepgram error:',e); scheduleReconnect('error'); },
+        onAgentError:e=>{ console.error('Mira agent error:',e); setStatus('Mira reported an error — reconnecting…'); scheduleReconnect('agent-error'); },
         onMessage:m=>{
           if(!m || !m.content) return;
           if(m.role==='user'){
@@ -197,7 +209,7 @@ $('save').onclick=async()=>{
   location.reload();
 };
 
-start();
+start(false);
 </script>
 </body>
 </html>
