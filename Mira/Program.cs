@@ -53,6 +53,21 @@ app.MapGet("/api/media/{name}", (string name) =>
     return File.Exists(path) ? Results.File(path, "video/mp4", enableRangeProcessing: true) : Results.NotFound();
 });
 
+app.MapGet("/api/mira-image", () =>
+{
+    var candidates = new[]
+    {
+        Path.Combine(root, "luna mouth closed.png"),
+        Path.Combine(root, "images", "luna", "luna mouth closed.png"),
+        Path.Combine(dataDir, "luna mouth closed.png"),
+        Path.Combine(dataDir, "images", "luna mouth closed.png")
+    };
+    var image = candidates.FirstOrDefault(File.Exists);
+    return image is null
+        ? Results.NotFound(new { error = "Mira image is missing. Put 'luna mouth closed.png' beside Mira.exe or in %LOCALAPPDATA%\\Mira." })
+        : Results.File(image, "image/png");
+});
+
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
 app.MapGet("/api/config", () =>
