@@ -66,6 +66,46 @@ app.MapGet("/api/deepgram-token", async () =>
     return string.IsNullOrWhiteSpace(token) ? Results.BadRequest(new { error = "Deepgram did not return a temporary token.", details = text }) : Results.Text(token, "text/plain");
 });
 
+app.MapPost("/api/idle-video", async () =>
+{
+    var key = LoadConfig()["falKey"]?.ToString();
+    if (string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error = "fal.ai key is missing. Open Setup." });
+    var imagePath = Path.Combine(root, "luna mouth closed.png");
+    if (!File.Exists(imagePath)) return Results.NotFound(new { error = "luna mouth closed.png was not packaged beside Mira.exe." });
+    var dataUri = "data:image/png;base64," + Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath));
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", key);
+    var payload = new JsonObject {
+        ["prompt"] = "Create a seamless idle loop of Mira, the gothic girl in the supplied image. Keep her identity, hair, eyes, fangs, clothing, lighting, background, and camera framing unchanged. Very subtle natural breathing, gentle blinking, tiny eye movement and an almost imperceptible head movement. Calm, alive, relaxed expression. No talking, no lip-sync, no speech, no subtitles, no text, no extra people, no camera movement, no morphing, no face distortion.",
+        ["start_image_url"] = dataUri,
+        ["duration"] = "5",
+        ["generate_audio"] = false,
+        ["negative_prompt"] = "talking, speech, lip-sync, face distortion, identity change, extra people, subtitles, text, camera shake, zoom, warped eyes, warped mouth"
+    };
+    var response = await http.PostAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",
+        new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
+    var responseText = await response.Content.ReadAsStringAsync();
+    if (!response.IsSuccessStatusCode) return Results.Content(responseText, "application/json", Encoding.UTF8, (int)response.StatusCode);
+    var requestId = JsonNode.Parse(responseText)?["request_id"]?.ToString();
+    if (string.IsNullOrWhiteSpace(requestId)) return Results.BadRequest(new { error = "fal.ai did not return a request id.", details = responseText });
+    for (var n = 0; n < 90; n++)
+    {
+        await Task.Delay(2000);
+        var status = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}/status");
+        var statusText = await status.Content.ReadAsStringAsync();
+        if (statusText.Contains("COMPLETED", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
+            var resultText = await result.Content.ReadAsStringAsync();
+            var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
+            return !string.IsNullOrWhiteSpace(url) ? Results.Ok(new { url }) : Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+        }
+        if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase))
+            return Results.BadRequest(new { error = "fal.ai idle video generation failed.", details = statusText });
+    }
+    return Results.StatusCode(504);
+});
+
 app.MapPost("/api/video", async (HttpRequest request) =>
 {
     var key = LoadConfig()["falKey"]?.ToString();
