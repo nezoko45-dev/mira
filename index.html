@@ -39,7 +39,7 @@ button:hover{filter:brightness(1.1)}
 <section class="card">
 <div class="stage">
 <img src="luna%20mouth%20closed.png" id="still" alt="Mira">
-<video id="miraVideo" playsinline autoplay muted></video>
+<video id="miraVideo" playsinline autoplay muted loop></video>
 <div class="placeholder" id="videoStatus">Waiting for Mira to speak…</div>
 </div>
 <div class="bottom">
@@ -62,6 +62,21 @@ button:hover{filter:brightness(1.1)}
 const $=id=>document.getElementById(id);
 let videoBusy=false;
 let videoQueue=Promise.resolve();
+let idleUrl='';
+
+async function loadIdleVideo(){
+  try{
+    $('videoStatus').textContent='Generating Mira idle video…';
+    const r=await fetch('/api/idle-video',{method:'POST'});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'Idle video generation failed');
+    idleUrl=j.url;
+    const v=$('miraVideo');
+    v.src=idleUrl; v.loop=true; v.muted=true; v.load();
+    try{await v.play()}catch{}
+    $('videoStatus').textContent='Mira is waiting…';
+  }catch(e){ console.error(e); $('videoStatus').textContent='Mira is waiting…'; }
+}
 
 function setStatus(t){$('status').textContent=t}
 function enqueueVideo(text){
@@ -77,11 +92,16 @@ async function makeVideo(text){
   const j=await r.json();
   if(!r.ok) throw new Error(j.error||'Video generation failed');
   const v=$('miraVideo');
+  v.loop=false;
+  v.muted=true;
   v.src=j.url;
   v.load();
   try{await v.play()}catch{}
   $('videoStatus').textContent='Mira is speaking';
   videoBusy=false;
+  v.onended=()=>{
+    if(idleUrl){ v.loop=true; v.src=idleUrl; v.load(); v.play().catch(()=>{}); $('videoStatus').textContent='Mira is waiting…'; }
+  };
 }
 
 async function start(){
@@ -94,6 +114,7 @@ async function start(){
     }
     $('setup').classList.remove('show');
     setStatus('Ready — press the microphone to talk');
+    loadIdleVideo();
     DeepgramAgent.init({
       tokenFactory:()=>fetch('/api/deepgram-token').then(async r=>{
         if(!r.ok) throw new Error(await r.text());
