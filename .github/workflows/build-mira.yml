@@ -13,18 +13,17 @@ jobs:
       - name: Publish self-contained EXE
         shell: pwsh
         run: dotnet publish Mira/Mira.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
-      - name: Verify packaged files
+      - name: Package required files
         shell: pwsh
         run: |
           if (!(Test-Path publish/Mira.exe)) { throw "Mira.exe was not produced" }
-          if (!(Test-Path "publish/luna mouth closed.png")) { throw "luna mouth closed.png was not packaged" }
+          Copy-Item "luna mouth closed.png" "publish/luna mouth closed.png" -Force
+          if (!(Test-Path "publish/luna mouth closed.png")) { throw "luna mouth closed.png was not copied" }
+          if (!(Test-Path "publish/index.html")) { throw "index.html was not published" }
       - name: Zip Windows app
         shell: pwsh
-        run: Compress-Archive -Path publish/Mira.exe,"publish/luna mouth closed.png" -DestinationPath Mira-Windows.zip -Force
+        run: Compress-Archive -Path publish/* -DestinationPath Mira-Windows.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Mira-Windows
-          path: |
-            publish/Mira.exe
-            publish/luna mouth closed.png
-            Mira-Windows.zip
+          path: Mira-Windows.zip
