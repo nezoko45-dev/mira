@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mira — Live 2</title>
+<style>
+:root{--pink:#ff4f9a;--violet:#9147ff;--panel:#17111e;--line:#382743;--text:#fff;--muted:#aa9aae}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#09070d;color:var(--text);font-family:Inter,system-ui,Segoe UI,sans-serif}
+body{min-height:100vh;background:radial-gradient(circle at 50% 10%,#32153c 0,#100a14 42%,#07060a 100%)}
+button,input{font:inherit}
+.app{width:min(1180px,100%);min-height:100vh;margin:auto;padding:18px;display:grid;grid-template-rows:auto 1fr}
+header{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 16px}
+.logo{font-size:25px;font-weight:900}.logo span{color:var(--pink)}
+.state{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#120c18;color:#c8b8cc;font-size:13px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:18px;align-items:stretch}
+.card{border:1px solid var(--line);background:#120d17dd;border-radius:24px;box-shadow:0 25px 90px #0008;overflow:hidden}
+.stage{min-height:calc(100vh - 90px);position:relative;background:#07050a}
+.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.stage video{display:block}.stage video[hidden],.stage img[hidden]{display:none}
+.overlay{position:absolute;left:16px;right:16px;bottom:16px;display:flex;justify-content:space-between;align-items:end;gap:12px}
+.name{font-size:24px;font-weight:900;text-shadow:0 2px 15px #000}
+.hint{font-size:12px;color:#ddd;margin-top:3px}
+.live-dot{width:10px;height:10px;border-radius:50%;background:#777;display:inline-block;margin-right:7px}
+body.voice-on .live-dot{background:#ff4f9a;box-shadow:0 0 14px #ff4f9a;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35;transform:scale(.75)}}
+body.talking .stage img{animation:breathe .55s ease-in-out infinite alternate}
+@keyframes breathe{to{transform:scale(1.012);filter:brightness(1.08)}}
+.panel{padding:15px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.btn{position:relative;overflow:hidden;border:1px solid #493452;border-radius:14px;padding:13px 12px;background:#251a2d;color:#fff;font-weight:850;cursor:pointer;transition:transform .12s,filter .12s,box-shadow .12s,background .12s;border-bottom-width:3px}
+.btn:hover{filter:brightness(1.15);box-shadow:0 8px 24px #0006;transform:translateY(-1px)}
+.btn:active{transform:translateY(2px);filter:brightness(.9);border-bottom-width:1px}
+.btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.btn.primary{background:linear-gradient(135deg,var(--pink),var(--violet));border-color:#ff8dc0}
+.btn.active{box-shadow:0 0 0 2px #ff5fa2 inset,0 0 22px #ff3c9633}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.status{font-size:13px;line-height:1.5;color:var(--muted);min-height:20px;margin-top:12px}
+.chat{height:230px;overflow:auto;margin:10px 0;padding-right:3px}
+.msg{margin:7px 0;padding:9px 11px;border-radius:13px;background:#24192c;white-space:pre-wrap}
+.msg.user{margin-left:24px;background:#5a2349}
+.form{display:flex;gap:7px}.form input{min-width:0;flex:1;padding:11px;border-radius:12px;border:1px solid #44314d;background:#0b080f;color:#fff;outline:0}
+.form input:focus{border-color:#ff5fa2;box-shadow:0 0 0 3px #ff5fa21f}
+.api{font-size:12px;color:#a998ac}
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,18px);opacity:0;pointer-events:none;padding:11px 15px;border:1px solid #51365c;background:#170f1dcc;border-radius:12px;backdrop-filter:blur(12px);transition:.2s;z-index:20}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.modal-toggle{position:absolute;opacity:0;pointer-events:none}
+.modal{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:18px;z-index:10;opacity:0;visibility:hidden;transition:.18s}
+#setupToggle:checked~.modal{opacity:1;visibility:visible}
+.modal-box{width:min(520px,100%);padding:20px;border-radius:22px;background:#18121f;border:1px solid #493452;box-shadow:0 30px 100px #000}
+.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:13px;color:#cbbccc}.field input{width:100%;padding:12px;border-radius:11px;border:1px solid #493452;background:#0b080f;color:#fff}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.close-label{display:block;text-align:center}
+@media(max-width:820px){.layout{grid-template-columns:1fr}.stage{min-height:68vh}.side{order:2}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="logo">Mira <span>Live 2</span></div><div class="state"><i class="live-dot"></i><span id="state">READY</span></div></header>
+<main class="layout">
+<section class="card stage">
+<img id="mira" src="/luna%20mouth%20closed.png" alt="Mira">
+<video id="video" hidden autoplay muted playsinline loop></video>
+<div class="overlay"><div><div class="name">Mira</div><div class="hint" id="hint">Your gothic companion is waiting.</div></div></div>
+</section>
+<aside class="card side">
+<div class="panel">
+<div class="controls">
+<button id="start" class="btn primary">🎙 Start Voice</button>
+<button id="stop" class="btn" disabled>■ Stop</button>
+<button id="animate" class="btn">✨ Animate Mira</button>
+<label for="setupToggle" class="btn" style="text-align:center">⚙ Setup</label>
+</div>
+<div id="status" class="status">Choose an action. The buttons have built-in press/hover feedback even before an API action finishes.</div>
+</div>
+<div class="panel">
+<strong>Chat</strong>
+<div id="chat" class="chat"></div>
+<form id="form" class="form"><input id="text" autocomplete="off" placeholder="Type to Mira…"><button class="btn primary" type="submit">Send</button></form>
+</div>
+<div class="panel"><div id="videoStatus" class="api">Video API: checking…</div></div>
+</aside>
+</main>
+</div>
+
+<input id="setupToggle" class="modal-toggle" type="checkbox">
+<div class="modal">
+<div class="modal-box">
+<h2 style="margin-top:0">Mira Setup</h2>
+<div class="status" style="margin-top:0">Keys stay on this local PC through the existing server.</div>
+<div class="field"><label>Deepgram API Key</label><input id="dgKey" type="password"></div>
+<div class="field"><label>Deepgram Agent ID</label><input id="dgAgent"></div>
+<div class="field"><label>fal.ai FAL_KEY</label><input id="falKey" type="password"></div>
+<div id="setupMsg" class="status"></div>
+<div class="modal-actions">
+<label for="setupToggle" class="btn close-label">Cancel</label>
+<button id="save" class="btn primary" type="button">Save Setup</button>
+</div>
+</div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const state=$("state"), status=$("status"), hint=$("hint"), mira=$("mira"), video=$("video");
+const chat=$("chat"), toast=$("toast"), setupMsg=$("setupMsg"), videoStatus=$("videoStatus");
+let session=null,mic=null,player=null,dg=null,toastTimer=null;
+
+function setState(s){state.textContent=s.toUpperCase();status.textContent=s;hint.textContent=s}
+function notify(s){toast.textContent=s;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),2200)}
+function add(role,text){if(!text)return;const d=document.createElement("div");d.className="msg "+(role==="user"?"user":"");d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+async function cfg(){const r=await fetch("/api/config?_"+Date.now(),{cache:"no-store"});return r.json()}
+async function loadDG(){if(dg)return dg;setState("Loading Deepgram…");dg=await import("https://cdn.jsdelivr.net/npm/@deepgram/agents/+esm");return dg}
+
+$("start").addEventListener("click",async()=>{
+$("start").disabled=true;setState("Starting voice…");
+try{
+const c=await cfg();if(!c.ready)throw Error("Open Setup and save your keys first.");
+const mod=await loadDG();
+session=new mod.AgentSession({auth:{tokenFactory:async()=>{const r=await fetch("/api/deepgram-token");if(!r.ok)throw Error(await r.text());return r.text()}},agent:c.agentId});
+player=new mod.AgentPlayer({sampleRate:24000});
+session.on("audio",x=>player.queue(x));
+session.on("user-started-speaking",()=>player.interrupt());
+session.on("agent-started-speaking",()=>document.body.classList.add("talking"));
+session.on("agent-audio-done",()=>document.body.classList.remove("talking"));
+session.on("conversation-text",x=>add(x.role==="user"?"user":"assistant",x.content));
+session.on("error",e=>{setState("Deepgram error");notify(e.message||String(e));});
+await session.connect();
+mic=new mod.AgentMicrophone(x=>session.sendAudio(x),{sampleRate:16000,echoCancellation:true,noiseSuppression:true,autoGainControl:true});
+await mic.start();
+document.body.classList.add("voice-on");$("start").classList.add("active");$("stop").disabled=false;setState("Mira is listening…");notify("Voice connected");
+}catch(e){$("start").disabled=false;setState("Voice failed");notify(e.message||String(e))}
+});
+$("stop").addEventListener("click",()=>{try{mic&&mic.stop()}catch(e){}try{session&&session.disconnect()}catch(e){}mic=null;session=null;player=null;document.body.classList.remove("voice-on","talking");$("start").disabled=false;$("start").classList.remove("active");$("stop").disabled=true;setState("Voice stopped");notify("Voice stopped")});
+
+$("animate").addEventListener("click",async()=>{
+const b=$("animate");b.disabled=true;b.classList.add("active");videoStatus.textContent="Video API: generating…";setState("Mira is becoming animated…");
+try{const r=await fetch("/api/video",{method:"POST"});const j=await r.json();if(!r.ok)throw Error(j.error||"Video generation failed");video.src=j.url+"?_"+Date.now();video.hidden=false;mira.hidden=true;await video.play().catch(()=>{});videoStatus.textContent="Video API: Mira video ready ✓";setState("Animated Mira is playing");notify("Mira video ready")}
+catch(e){videoStatus.textContent="Video API: "+(e.message||"generation failed");setState("Animation failed");notify(e.message||String(e))}
+finally{b.disabled=false;b.classList.remove("active")}
+});
+
+$("form").addEventListener("submit",e=>{e.preventDefault();const t=$("text").value.trim();if(!t)return;if(!session){notify("Start Voice first");$("text").focus();return}add("user",t);$("text").value="";session.injectUserMessage(t);setState("Mira is thinking…")});
+
+$("save").addEventListener("click",async()=>{
+$("save").disabled=true;setupMsg.textContent="Saving…";
+try{const r=await fetch("/api/setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({deepgramApiKey:$("dgKey").value.trim(),deepgramAgentId:$("dgAgent").value.trim(),falKey:$("falKey").value.trim()})});const j=await r.json();if(!r.ok)throw Error(j.error||"Setup failed");$("setupToggle").checked=false;setupMsg.textContent="";setState("Setup saved");notify("Setup saved")}
+catch(e){setupMsg.textContent=e.message||String(e)}
+finally{$("save").disabled=false}
+});
+
+(async()=>{try{const c=await cfg();if(!c.ready)notify("Open Setup to add your keys");const r=await fetch("/api/video/status?_"+Date.now(),{cache:"no-store"});const j=await r.json();videoStatus.textContent=j.configured?"Video API: connected ✓":"Video API: add FAL_KEY in Setup"}catch(e){setState("Server not reachable");notify("Start Mira Live 2 again")}})();
+})();
+</script>
+</body>
+</html>
