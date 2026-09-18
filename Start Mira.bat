@@ -20,7 +20,7 @@ if errorlevel 1 (
 echo Node.js found.
 echo.
 
-if not exist "node_modules\express" (
+if not exist "node_modules\express" goto install\nif not exist "node_modules\@fal-ai\client" goto install\ngoto installed\n\n:install
   echo Installing Mira dependencies...
   echo This may take a minute.
   echo.
