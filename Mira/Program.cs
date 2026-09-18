@@ -35,10 +35,9 @@ app.MapGet("/api/config", () =>
 {
     var c = LoadConfig();
     return Results.Ok(new {
-        ready = !string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString()) &&
-                !string.IsNullOrWhiteSpace(c["agentId"]?.ToString()),
+        ready = !string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString()),
         hasFal = !string.IsNullOrWhiteSpace(c["falKey"]?.ToString()),
-        agentId = c["agentId"]?.ToString() ?? ""
+        configured = true
     });
 });
 
@@ -47,7 +46,7 @@ app.MapPost("/api/setup", async (HttpRequest request) =>
     var body = await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
     if (body is null) return Results.BadRequest(new { error = "Invalid setup data." });
     var c = LoadConfig();
-    foreach (var key in new[] { "deepgramApiKey", "agentId", "falKey" })
+    foreach (var key in new[] { "deepgramApiKey", "falKey" })
         if (body[key] is not null) c[key] = body[key]!.ToString().Trim();
     SaveConfig(c);
     return Results.Ok(new { ok = true });
