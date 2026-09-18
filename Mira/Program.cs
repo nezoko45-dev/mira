@@ -67,18 +67,22 @@ app.MapGet("/api/deepgram-token", async () =>
     return string.IsNullOrWhiteSpace(token) ? Results.BadRequest(new { error = "Deepgram did not return a temporary token.", details = text }) : Results.Text(token, "text/plain");
 });
 
-app.MapPost("/api/video", async () =>
+app.MapPost("/api/video", async (HttpRequest request) =>
 {
     var key = LoadConfig()["falKey"]?.ToString();
     if (string.IsNullOrWhiteSpace(key)) return Results.BadRequest(new { error = "fal.ai key is missing. Open Setup." });
+    var body = await JsonSerializer.DeserializeAsync<JsonObject>(request.Body);
+    var spoken = body?["text"]?.ToString()?.Trim() ?? "";
+    if (string.IsNullOrWhiteSpace(spoken)) return Results.BadRequest(new { error = "Mira reply text is missing." });
     var imagePath = Path.Combine(root, "luna mouth closed.png");
     if (!File.Exists(imagePath)) return Results.NotFound(new { error = "luna mouth closed.png was not packaged beside Mira.exe." });
     var dataUri = "data:image/png;base64," + Convert.ToBase64String(await File.ReadAllBytesAsync(imagePath));
     using var http = new HttpClient();
     http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Key", key);
     var payload = new JsonObject {
-        ["prompt"] = "A gothic girl gently talks directly to the camera. Natural blinking, subtle breathing, small head movement, stable identity, realistic facial motion, cinematic gothic romantic atmosphere.",
-        ["start_image_url"] = dataUri, ["duration"] = "5"
+        ["prompt"] = "Mira, the gothic girl in the supplied image, is speaking directly to the viewer. Animate natural facial acting that matches this exact spoken line: " + JsonSerializer.Serialize(spoken) + ". Natural blinking, subtle breathing, expressive eyes, small head movement, accurate mouth movement, stable identity. Preserve her appearance and framing. No subtitles, no text, no extra people, no face distortion, no camera shake.",
+        ["start_image_url"] = dataUri, ["duration"] = Math.Clamp((int)Math.Ceiling(spoken.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length / 2.25), 3, 15).ToString(), ["generate_audio"] = false,
+        ["negative_prompt"] = "face distortion, identity change, extra people, subtitles, text, warped eyes, warped mouth, camera shake"
     };
     var response = await http.PostAsync("https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video",
         new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
