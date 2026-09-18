@@ -29,6 +29,28 @@ JsonObject LoadConfig()
 }
 void SaveConfig(JsonObject c) => File.WriteAllText(configFile, c.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
+async Task<string> CacheVideoAsync(string url, string prefix)
+{
+    using var http = new HttpClient();
+    using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+    response.EnsureSuccessStatusCode();
+    var fileName = prefix + "-" + Guid.NewGuid().ToString("N") + ".mp4";
+    var path = Path.Combine(mediaDir, fileName);
+    await using var input = await response.Content.ReadAsStreamAsync();
+    await using var output = File.Create(path);
+    await input.CopyToAsync(output);
+    return fileName;
+}
+
+app.MapGet("/api/media/{name}", (string name) =>
+{
+    var safe = Path.GetFileName(name);
+    if (!string.Equals(safe, name, StringComparison.Ordinal) || !safe.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = "Invalid media file." });
+    var path = Path.Combine(mediaDir, safe);
+    return File.Exists(path) ? Results.File(path, "video/mp4", enableRangeProcessing: true) : Results.NotFound();
+});
+
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
 app.MapGet("/api/config", () =>
@@ -98,7 +120,9 @@ app.MapPost("/api/idle-video", async () =>
             var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
             var resultText = await result.Content.ReadAsStringAsync();
             var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
-            return !string.IsNullOrWhiteSpace(url) ? Results.Ok(new { url }) : Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+            if (string.IsNullOrWhiteSpace(url)) return Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+            var file = await CacheVideoAsync(url, "idle");
+            return Results.Ok(new { url = "/api/media/" + file });
         }
         if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase))
             return Results.BadRequest(new { error = "fal.ai idle video generation failed.", details = statusText });
@@ -139,7 +163,9 @@ app.MapPost("/api/video", async (HttpRequest request) =>
             var result = await http.GetAsync($"https://queue.fal.run/fal-ai/kling-video/v3/standard/image-to-video/requests/{requestId}");
             var resultText = await result.Content.ReadAsStringAsync();
             var url = JsonNode.Parse(resultText)?["video"]?["url"]?.ToString();
-            return !string.IsNullOrWhiteSpace(url) ? Results.Ok(new { url }) : Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+            if (string.IsNullOrWhiteSpace(url)) return Results.BadRequest(new { error = "fal.ai completed but returned no video URL.", details = resultText });
+            var file = await CacheVideoAsync(url, "reply");
+            return Results.Ok(new { url = "/api/media/" + file });
         }
         if (statusText.Contains("FAILED", StringComparison.OrdinalIgnoreCase)) return Results.BadRequest(new { error = "fal.ai video generation failed.", details = statusText });
     }
