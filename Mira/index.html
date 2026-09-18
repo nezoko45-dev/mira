@@ -51,10 +51,10 @@ button:hover{filter:brightness(1.1)}
 <h2>Mira setup</h2>
 <div class="grid">
 <input id="dgKey" type="password" placeholder="Deepgram API key">
-<input id="replicateKey" type="password" placeholder="Replicate API token">
+<div class="hint" style="padding:12px;border:1px solid #3b293f;border-radius:12px">Local video engine: <b>Wan2GP</b>. No video API key is required.</div>
 <button id="save">Save & start Mira</button>
 </div>
-<div class="hint">Only your Deepgram and Replicate keys are needed. The Mira voice agent is configured directly in this app.</div>
+<div class="hint">Only your Deepgram key is needed. The Mira voice agent is configured directly in this app.</div>
 </div>
 </section>
 </main>
@@ -69,14 +69,8 @@ async function loadIdleVideo(){
     $('videoStatus').textContent='Generating Mira idle video…';
     const r=await fetch('/api/idle-video',{method:'POST'});
     const j=await r.json();
-    if(!r.ok) throw new Error(j.error||'Idle video generation failed');
-    idleUrl=j.url;
-    const v=$('miraVideo');
-    v.src=idleUrl; v.loop=true; v.muted=true; v.load();
-    await new Promise((resolve,reject)=>{v.onloadeddata=resolve;v.onerror=()=>reject(new Error('Chrome could not load the idle video'));});
-    v.style.opacity='1';
-    try{await v.play()}catch{}
-    $('videoStatus').textContent='Mira is waiting…';
+    if(!r.ok) throw new Error(j.error||'Local Wan2GP is not installed yet.');
+    idleUrl=''; $('videoStatus').textContent='Local Wan2GP is ready — video generation is local.';
   }catch(e){ console.error(e); $('videoStatus').textContent='Mira is waiting…'; }
 }
 
@@ -91,8 +85,7 @@ async function makeVideo(text){
   videoBusy=true;
   $('videoStatus').textContent='Mira is generating a video…';
   const r=await fetch('/api/video',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-  const j=await r.json();
-  if(!r.ok) throw new Error(j.error||'Video generation failed');
+  const j=await r.json(); if(!r.ok) throw new Error(j.error||'Local Wan2GP video engine is not ready.'); if(!j.url){ $('videoStatus').textContent='Wan2GP is running locally; generate the clip in the local engine.'; return; }
   const v=$('miraVideo');
   v.loop=false;
   v.muted=true;
@@ -202,7 +195,7 @@ async function start(isReconnect=false){
 }
 
 $('save').onclick=async()=>{
-  const body={deepgramApiKey:$('dgKey').value,replicateApiKey:$('replicateKey').value};
+  const body={deepgramApiKey:$('dgKey').value};
   const r=await fetch('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json();
   if(!r.ok){alert(j.error||'Setup failed');return}
