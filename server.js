@@ -1,0 +1,5 @@
+const express=require("express");const path=require("path");const app=express();const PORT=process.env.PORT||8787;const KEY=process.env.DEEPGRAM_API_KEY;const AGENT=process.env.DEEPGRAM_AGENT_ID;
+app.use(express.static(__dirname));
+app.get("/api/config",(q,r)=>AGENT?r.json({agentId:AGENT}):r.status(500).json({error:"Set DEEPGRAM_AGENT_ID on the server."}));
+app.get("/api/deepgram-token",async(q,r)=>{if(!KEY)return r.status(500).send("Set DEEPGRAM_API_KEY on the server.");try{const x=await fetch("https://api.deepgram.com/v1/auth/grant",{method:"POST",headers:{Authorization:"Token "+KEY,"Content-Type":"application/json"},body:JSON.stringify({ttl_seconds:300})});const j=await x.json();if(!x.ok)return r.status(x.status).send(j.err_msg||"Deepgram token failed");r.type("text").send(j.access_token)}catch(e){r.status(500).send("Deepgram token service failed")}});
+app.get("*",(q,r)=>r.sendFile(path.join(__dirname,"index.html")));app.listen(PORT,()=>console.log("Mira: http://localhost:"+PORT));
