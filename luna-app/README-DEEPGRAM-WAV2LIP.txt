@@ -1,1 +1,0 @@
-Luna pipeline: Chrome -> local Node backend -> Deepgram STT/TTS -> MP3 -> Wav2Lip -> MP4. The source image is the single repository file `luna mouth closed.png`. Configure WAV2LIP_VERSION in the packaged backend environment before running the Wav2Lip endpoint.
