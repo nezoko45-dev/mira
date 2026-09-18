@@ -44,55 +44,10 @@ async Task<string> CacheVideoAsync(string url, string prefix)
     return fileName;
 }
 
-async Task<string> UploadReplicateImageAsync(string token, string imagePath)
-{
-    using var http=new HttpClient();
-    http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
-    using var form=new MultipartFormDataContent();
-    var file=new ByteArrayContent(await File.ReadAllBytesAsync(imagePath));
-    file.Headers.ContentType=new MediaTypeHeaderValue("image/png");
-    form.Add(file,"content","luna-mouth-closed.png");
-    var response=await http.PostAsync("https://api.replicate.com/v1/files",form);
-    var text=await response.Content.ReadAsStringAsync();
-    if(!response.IsSuccessStatusCode) throw new InvalidOperationException("Replicate image upload failed: "+text);
-    var url=JsonNode.Parse(text)?["urls"]?["get"]?.ToString();
-    if(string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("Replicate did not return an image URL.");
-    return url;
-}
-async Task<string> GenerateReplicateVideoAsync(string token,string imageUrl,string prompt)
-{
-    using var http=new HttpClient();
-    http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
-    var payload=new JsonObject { ["input"]=new JsonObject {
-        ["image"]=imageUrl,["prompt"]=prompt,["resolution"]="480p",["aspect_ratio"]="16:9",
-        ["frames"]=81,["fast_mode"]="Balanced",["sample_steps"]=30,["sample_guide_scale"]=5,
-        ["negative_prompt"]="face distortion, identity change, extra people, subtitles, text, warped eyes, warped mouth, camera shake"
-    }};
-    using var response=await http.PostAsync("https://api.replicate.com/v1/models/wavespeedai/wan-2.1-i2v-480p/predictions",
-        new StringContent(payload.ToJsonString(),Encoding.UTF8,"application/json"));
-    var responseText=await response.Content.ReadAsStringAsync();
-    if(!response.IsSuccessStatusCode) throw new InvalidOperationException("Replicate video request failed: "+responseText);
-    var id=JsonNode.Parse(responseText)?["id"]?.ToString();
-    if(string.IsNullOrWhiteSpace(id)) throw new InvalidOperationException("Replicate did not return a prediction id.");
-    for(var i=0;i<120;i++){
-        var check=await http.GetAsync("https://api.replicate.com/v1/predictions/"+id);
-        var checkText=await check.Content.ReadAsStringAsync();
-        if(!check.IsSuccessStatusCode) throw new InvalidOperationException("Replicate status request failed: "+checkText);
-        var node=JsonNode.Parse(checkText)?.AsObject();
-        var status=node?["status"]?.ToString();
-        if(string.Equals(status,"succeeded",StringComparison.OrdinalIgnoreCase)){
-            var output=node?["output"];
-            var url=output is JsonValue ? output.ToString() : output?.AsArray().FirstOrDefault()?.ToString();
-            if(string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("Replicate completed without a video URL.");
-            return url;
-        }
-        if(string.Equals(status,"failed",StringComparison.OrdinalIgnoreCase)||string.Equals(status,"canceled",StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Replicate video generation "+status+": "+checkText);
-        await Task.Delay(2000);
-    }
-    throw new TimeoutException("Replicate video generation timed out.");
-}
-
+async Task<bool> WaitForLocalVideoEngineAsync(string u,int t=90){using var x=new HttpClient{Timeout=TimeSpan.FromSeconds(3)};var e=DateTime.UtcNow.AddSeconds(t);while(DateTime.UtcNow<e){try{if((await x.GetAsync(u+"/config")).IsSuccessStatusCode)return true;}catch{}await Task.Delay(1000);}return false;}
+string FindPython(){var a=new[]{Path.Combine(dataDir,"python","python.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Python","Python312","python.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Python","Python311","python.exe")};return a.FirstOrDefault(File.Exists)??"python";}
+string WanDir()=>Path.Combine(dataDir,"Wan2GP");
+async Task<bool> StartWanEngineAsync(){var d=WanDir();if(!File.Exists(Path.Combine(d,"wgp.py")))return false;try{var p=new ProcessStartInfo{FileName=FindPython(),WorkingDirectory=d,Arguments="wgp.py --i2v --server-name 127.0.0.1 --server-port 7861",UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};p.Environment["PYTHONUNBUFFERED"]="1";Process.Start(p);return await WaitForLocalVideoEngineAsync("http://127.0.0.1:7861");}catch{return false;}}
 app.MapGet("/api/media/{name}", (string name) =>
 {
     var safe = Path.GetFileName(name);
@@ -183,6 +138,41 @@ app.MapPost("/api/video", async (HttpRequest request) =>
         return Results.Ok(new {url="/api/media/"+file});
     }catch(Exception ex){return Results.BadRequest(new {error=ex.Message});}
 });
+app.MapFallback(async context =>
+{
+    var requestPath = context.Request.Path.Value ?? "/";
+    var relative = requestPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+    var full = relative.Length == 0 ? Path.Combine(root, "index.html") : Path.GetFullPath(Path.Combine(root, relative));
+    if (!full.StartsWith(Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase) || !File.Exists(full)) { context.Response.StatusCode = 404; return; }
+    context.Response.ContentType = Path.GetExtension(full).ToLowerInvariant() switch {
+        ".html" => "text/html; charset=utf-8", ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg",
+        ".css" => "text/css; charset=utf-8", ".js" => "text/javascript; charset=utf-8", _ => "application/octet-stream"
+    };
+    await context.Response.SendFileAsync(full);
+});
+
+var url = "http://127.0.0.1:8787/";
+_ = Task.Run(async () =>
+{
+    await Task.Delay(900);
+    try
+    {
+        var chromeCandidates = new[] {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Google", "Chrome", "Application", "chrome.exe")
+        };
+        var chrome = chromeCandidates.FirstOrDefault(File.Exists);
+        Process.Start(new ProcessStartInfo { FileName = chrome ?? url, Arguments = chrome is null ? "" : url, UseShellExecute = true });
+    } catch { }
+});
+app.Run()app.MapGet("/api/config",()=>{var c=LoadConfig();return Results.Ok(new{ready=!string.IsNullOrWhiteSpace(c["deepgramApiKey"]?.ToString()),hasLocalVideoEngine=File.Exists(Path.Combine(WanDir(),"wgp.py")),videoEngine="Wan2GP local",configured=true});});
+app.MapPost("/api/setup",async(HttpRequest r)=>{var x=await JsonSerializer.DeserializeAsync<JsonObject>(r.Body);if(x is null)return Results.BadRequest(new{error="Invalid setup data."});var c=LoadConfig();if(x["deepgramApiKey"] is not null)c["deepgramApiKey"]=x["deepgramApiKey"]!.ToString().Trim();SaveConfig(c);return Results.Ok(new{ok=true});});
+app.MapGet("/api/deepgram-token",async()=>{var k=LoadConfig()["deepgramApiKey"]?.ToString();if(string.IsNullOrWhiteSpace(k))return Results.BadRequest(new{error="Deepgram API key is missing. Open Setup."});using var h=new HttpClient();h.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Token",k);using var x=new StringContent("{\"ttl_seconds\":300}",Encoding.UTF8,"application/json");var r=await h.PostAsync("https://api.deepgram.com/v1/auth/grant",x);var t=await r.Content.ReadAsStringAsync();if(!r.IsSuccessStatusCode)return Results.Content(t,"application/json",Encoding.UTF8,(int)r.StatusCode);var q=JsonNode.Parse(t)?["access_token"]?.ToString();return string.IsNullOrWhiteSpace(q)?Results.BadRequest(new{error="Deepgram did not return a temporary token.",details=t}):Results.Text(q,"text/plain");});
+app.MapGet("/api/video-engine",()=>Results.Ok(new{installed=File.Exists(Path.Combine(WanDir(),"wgp.py")),path=WanDir(),endpoint="http://127.0.0.1:7861"}));
+app.MapPost("/api/video-engine/start",async()=>{var ok=await StartWanEngineAsync();return ok?Results.Ok(new{ok=true,engine="Wan2GP"}):Results.BadRequest(new{ok=false,error="Wan2GP is not installed in %LOCALAPPDATA%\\Mira\\Wan2GP."});});
+app.MapPost("/api/idle-video",async()=>{if(!File.Exists(Path.Combine(WanDir(),"wgp.py")))return Results.BadRequest(new{error="Local Wan2GP video engine is not installed yet."});return await StartWanEngineAsync()?Results.Ok(new{pending=true,engine="Wan2GP"}):Results.BadRequest(new{error="Wan2GP could not be started."});});
+app.MapPost("/api/video",async(HttpRequest r)=>{if(!File.Exists(Path.Combine(WanDir(),"wgp.py")))return Results.BadRequest(new{error="Local Wan2GP video engine is not installed yet."});var x=await JsonSerializer.DeserializeAsync<JsonObject>(r.Body);var spoken=x?["text"]?.ToString()?.Trim()??"";if(string.IsNullOrWhiteSpace(spoken))return Results.BadRequest(new{error="Mira reply text is missing."});return await StartWanEngineAsync()?Results.Ok(new{pending=true,engine="Wan2GP",spoken}):Results.BadRequest(new{error="Wan2GP could not be started."});});
 app.MapFallback(async context =>
 {
     var requestPath = context.Request.Path.Value ?? "/";
