@@ -21,6 +21,8 @@ var root = AppContext.BaseDirectory;
 var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Mira");
 Directory.CreateDirectory(dataDir);
 var configFile = Path.Combine(dataDir, "config.json");
+var mediaDir = Path.Combine(dataDir, "media");
+Directory.CreateDirectory(mediaDir);
 
 JsonObject LoadConfig()
 {
