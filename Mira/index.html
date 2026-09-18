@@ -14,8 +14,8 @@ h1{margin:0;font-size:34px;letter-spacing:.04em}
 .sub{color:#bcaabd;margin-top:6px}
 .card{background:rgba(18,12,22,.86);border:1px solid #3b293f;border-radius:24px;box-shadow:0 20px 70px rgba(0,0,0,.45);overflow:hidden}
 .stage{position:relative;min-height:520px;display:grid;place-items:center;background:#09070b}
-.stage img,.stage video{width:100%;height:520px;object-fit:cover;display:block}
-.stage video{position:absolute;inset:0}
+.stage img,.stage video{width:100%;height:520px;object-fit:cover;display:block}.stage img{position:relative;z-index:1}
+.stage video{position:absolute;inset:0;z-index:2;background:#09070b;opacity:0;transition:opacity .25s ease}
 .placeholder{position:absolute;bottom:16px;left:16px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.55);font-size:12px;color:#d8c9da}
 .bottom{padding:20px}
 .status{display:flex;align-items:center;gap:10px;color:#cdb8cf;font-size:14px;margin-bottom:14px}
@@ -73,6 +73,8 @@ async function loadIdleVideo(){
     idleUrl=j.url;
     const v=$('miraVideo');
     v.src=idleUrl; v.loop=true; v.muted=true; v.load();
+    await new Promise((resolve,reject)=>{v.onloadeddata=resolve;v.onerror=()=>reject(new Error('Chrome could not load the idle video'));});
+    v.style.opacity='1';
     try{await v.play()}catch{}
     $('videoStatus').textContent='Mira is waiting…';
   }catch(e){ console.error(e); $('videoStatus').textContent='Mira is waiting…'; }
@@ -96,11 +98,13 @@ async function makeVideo(text){
   v.muted=true;
   v.src=j.url;
   v.load();
+  await new Promise((resolve,reject)=>{v.onloadeddata=resolve;v.onerror=()=>reject(new Error('Chrome could not load Mira video'));});
+  v.style.opacity='1';
   try{await v.play()}catch{}
   $('videoStatus').textContent='Mira is speaking';
   videoBusy=false;
   v.onended=()=>{
-    if(idleUrl){ v.loop=true; v.src=idleUrl; v.load(); v.play().catch(()=>{}); $('videoStatus').textContent='Mira is waiting…'; }
+    if(idleUrl){ v.loop=true; v.src=idleUrl; v.load(); v.onloadeddata=()=>{v.style.opacity='1';v.play().catch(()=>{});}; $('videoStatus').textContent='Mira is waiting…'; }
   };
 }
 
