@@ -1,1 +1,1 @@
-{"name":"mira-ai-video-date","version":"1.0.0","private":true,"scripts":{"start":"node server.js"},"dependencies":{"express":"^5.1.0"}}
+{"name":"mira-ai-video-date","version":"1.0.0","private":true,"scripts":{"start":"node server.js"},"dependencies":{"express":"^5.1.0","@fal-ai/client":"^1.9.2"}}
