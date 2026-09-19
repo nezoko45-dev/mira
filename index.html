@@ -171,6 +171,11 @@ function agentSettings(){
         }
       },
       think:{
+        provider:{
+          type:'open_ai',
+          model:'gpt-4o',
+          temperature:0.8
+        },
         prompt:'You are Mira, a gothic, playful, affectionate dating companion. Speak naturally and warmly. Keep replies short, usually one or two sentences, because your responses are spoken aloud. Be flirty and mysterious without being explicit. Never use markdown, lists, or stage directions. Remember the conversation and respond directly to what the user says.'
       },
       speak:{
@@ -221,8 +226,9 @@ async function openAgent(){
 
     socket.onclose=()=>{
       agentReady=false;
-      if(!settled){settled=true;reject(new Error('Deepgram Voice Agent disconnected'))}
-      else if(stream)connection.textContent='Voice Agent disconnected';
+      const msg='Deepgram Voice Agent disconnected. Check the error shown above.';
+      if(!settled){settled=true;reject(new Error(msg))}
+      else if(stream)connection.textContent=msg;
     };
 
     socket.onmessage=event=>{
@@ -289,7 +295,7 @@ async function openAgent(){
       }
 
       if(msg.type==='Error'){
-        showError(new Error(msg.description||msg.code||'Deepgram Agent error'));
+        showError(new Error((msg.code||'AGENT_ERROR')+': '+(msg.description||'Deepgram Agent error')));
         return;
       }
 
