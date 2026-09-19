@@ -76,25 +76,29 @@ const debug=document.getElementById('debug');
 const mic=document.getElementById('mic');
 
 let anim=null;
-let ws=null, stream=null, audioCtx=null, processor=null, source=null, keepAlive=null, finalTimer=null;
-let ttsCtx=null, ttsSocket=null, ttsNextTime=0, ttsGeneration=0, ttsOpenPromise=null;
-let speaking=false;
-
-keyInput.value=localStorage.getItem('mira_dg_key')||'';
+let agentSocket=null;
+let stream=null, audioCtx=null, processor=null, source=null, keepAlive=null;
+let agentReady=false;
+let audioNextTime=0;
+let audioNodes=[];
+let agentGeneration=0;
 
 async function unlockAudio(){
-  if(!ttsCtx) ttsCtx=new (window.AudioContext||window.webkitAudioContext)();
-  if(ttsCtx.state==='suspended') await ttsCtx.resume();
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')await audioCtx.resume();
 }
 
-function setFrame(n){if(!framesReady)return;const index=Math.max(0,Math.min(frames.length-1,n));for(let i=0;i<frames.length;i++)frames[i].classList.toggle('active',i===index);}
+function setFrame(n){
+  if(!framesReady)return;
+  const index=Math.max(0,Math.min(frames.length-1,n));
+  for(let i=0;i<frames.length;i++)frames[i].classList.toggle('active',i===index);
+}
 function startMouth(){
   if(anim)return;
   speaking=true;
-  let n=0;
-  setFrame(0);
   const upwardOrder=[3,0,4,1,5,2];
   let p=0;
+  setFrame(upwardOrder[0]);
   anim=setInterval(()=>{p=(p+1)%upwardOrder.length;setFrame(upwardOrder[p])},FRAME_MS);
 }
 function stopMouth(){
@@ -113,162 +117,264 @@ function key(){return keyInput.value.trim()}
 function showError(e){
   const msg=e&&e.message?e.message:String(e);
   connection.textContent=msg.length>70?msg.slice(0,70)+'…':msg;
-  debug.textContent='TTS error: '+msg;
+  debug.textContent='Agent error: '+msg;
 }
 
 document.getElementById('save').onclick=async()=>{
   localStorage.setItem('mira_dg_key',key());
   if(key()){
-    connection.textContent='Deepgram key saved';
+    connection.textContent='Deepgram Agent key saved';
     await unlockAudio();
   }else connection.textContent='Add a Deepgram key';
 };
 
-document.getElementById('heart').onclick=async()=>{
-  await unlockAudio();
-  const text='Aww… you liked me? That makes me blush. 💕';
-  addMsg('mira',text);
-  speak(text);
-};
-
-const replies=[
-  [/hello|hi|hey/i,'Hey you. I’m Mira. I was hoping you’d say hello. 💜'],
-  [/love|like|cute|pretty|beautiful/i,'You’re making it very hard for me to keep my mysterious act going.'],
-  [/how are you|how r u/i,'I’m good… especially now that you’re here.'],
-  [/name/i,'I’m Mira. But you can call me whatever feels cute.'],
-  [/music|song/i,'I love moody music at night. It makes everything feel a little more romantic.'],
-  [/bye|goodnight/i,'Goodnight, you. Come back when the moon is up. 🌙']
-];
-function replyFor(t){
-  for(const [re,r] of replies)if(re.test(t))return r;
-  return ['Tell me more… I’m listening.','Hmm… I like where this conversation is going.','Really? You have my attention now.','That’s interesting. Keep talking to me.'][Math.floor(Math.random()*4)];
+async function stopAgentAudio(){
+  agentGeneration++;
+  for(const node of audioNodes){try{node.stop()}catch{}}
+  audioNodes=[];
+  if(audioCtx)audioNextTime=audioCtx.currentTime;
+  stopMouth();
 }
 
-function closeTTS(){
-  if(ttsSocket){
-    try{ttsSocket.close()}catch{}
-    ttsSocket=null;
-  }
-  ttsOpenPromise=null;
+function playAgentAudio(bytes){
+  if(!audioCtx)return;
+  const samples=new Int16Array(bytes);
+  if(!samples.length)return;
+  const buffer=audioCtx.createBuffer(1,samples.length,24000);
+  const channel=buffer.getChannelData(0);
+  for(let i=0;i<samples.length;i++)channel[i]=samples[i]<0?samples[i]/32768:samples[i]/32767;
+
+  const node=audioCtx.createBufferSource();
+  node.buffer=buffer;
+  node.connect(audioCtx.destination);
+  const generation=agentGeneration;
+  const startAt=Math.max(audioCtx.currentTime+0.01,audioNextTime);
+  node.start(startAt);
+  audioNextTime=startAt+buffer.duration;
+  audioNodes.push(node);
+  node.onended=()=>{audioNodes=audioNodes.filter(x=>x!==node)};
 }
 
-async function openTTS(){
+function agentSettings(){
+  return {
+    type:'Settings',
+    audio:{
+      input:{encoding:'linear16',sample_rate:16000},
+      output:{encoding:'linear16',sample_rate:24000,container:'none'}
+    },
+    agent:{
+      listen:{
+        provider:{
+          type:'deepgram',
+          model:'nova-3',
+          smart_format:true
+        }
+      },
+      think:{
+        provider:{
+          type:'open_ai',
+          model:'gpt-5.6-luna',
+          temperature:0.8
+        },
+        prompt:'You are Mira, a gothic, playful, affectionate dating companion. Speak naturally and warmly. Keep replies short, usually one or two sentences, because your responses are spoken aloud. Be flirty and mysterious without being explicit. Never use markdown, lists, or stage directions. Remember the conversation and respond directly to what the user says.'
+      },
+      speak:{
+        provider:{
+          type:'deepgram',
+          version:'v1',
+          model:'aura-2-amalthea-en'
+        }
+      }
+    },
+    flags:{history:true}
+  };
+}
+
+function closeAgent(){
+  stopAgentAudio();
+  agentReady=false;
+  if(agentSocket){try{agentSocket.close()}catch{}}
+  agentSocket=null;
+}
+
+async function openAgent(){
   await unlockAudio();
-  if(ttsSocket && ttsSocket.readyState===WebSocket.OPEN)return;
-  if(ttsOpenPromise)return ttsOpenPromise;
+  if(agentSocket&&agentSocket.readyState===WebSocket.OPEN&&agentReady)return;
   if(!key())throw new Error('Add your Deepgram key first');
 
-  ttsOpenPromise=new Promise((resolve,reject)=>{
-    const url='wss://api.deepgram.com/v1/speak?model=aura-2-amalthea-en&encoding=linear16&sample_rate='+TTS_RATE;
-    let settled=false;
-    const socket=new WebSocket(url,['token',key()]);
-    ttsSocket=socket;
+  closeAgent();
+  await unlockAudio();
 
-    const fail=(err)=>{
-      if(!settled){settled=true;reject(err)}
-    };
+  return new Promise((resolve,reject)=>{
+    const socket=new WebSocket('wss://agent.deepgram.com/v1/agent/converse',['token',key()]);
+    agentSocket=socket;
+    let welcomed=false;
+    let settled=false;
 
     socket.binaryType='arraybuffer';
+
     socket.onopen=()=>{
-      settled=true;
-      ttsNextTime=Math.max(ttsCtx.currentTime,ttsNextTime);
-      connection.textContent='Mira is connected';
-      debug.textContent='TTS WebSocket connected • Amalthea';
-      resolve();
+      connection.textContent='Connecting to Mira…';
+      debug.textContent='Deepgram Voice Agent connecting';
     };
-    socket.onerror=()=>fail(new Error('Deepgram TTS WebSocket connection failed'));
+
+    socket.onerror=()=>{
+      const err=new Error('Deepgram Voice Agent connection failed');
+      if(!settled){settled=true;reject(err)}
+      else showError(err);
+    };
+
     socket.onclose=()=>{
-      if(ttsSocket===socket)ttsSocket=null;
-      ttsOpenPromise=null;
-      if(!settled)fail(new Error('Deepgram TTS WebSocket closed'));
-      if(speaking && ttsNextTime<=ttsCtx.currentTime+0.05){
-        stopMouth();
-        connection.textContent='Deepgram TTS disconnected';
-      }
+      agentReady=false;
+      if(!settled){settled=true;reject(new Error('Deepgram Voice Agent disconnected'))}
+      else if(stream)connection.textContent='Voice Agent disconnected';
     };
-    socket.onmessage=async event=>{
-      if(typeof event.data==='string'){
-        let msg;
-        try{msg=JSON.parse(event.data)}catch{return}
-        if(msg.type==='Metadata'){
-          debug.textContent='TTS: '+(msg.model_name||'Amalthea')+' connected';
-        }else if(msg.type==='Warning'){
-          debug.textContent='TTS warning: '+(msg.description||'unknown');
-        }else if(msg.type==='Flushed'){
-          const wait=Math.max(0,(ttsNextTime-ttsCtx.currentTime)*1000)+80;
-          setTimeout(()=>{
-            if(speaking){
-              stopMouth();
-              connection.textContent='Deepgram ready';
-            }
-          },wait);
+
+    socket.onmessage=event=>{
+      if(event.data instanceof ArrayBuffer){
+        playAgentAudio(event.data);
+        return;
+      }
+
+      let msg;
+      try{msg=JSON.parse(event.data)}catch{return}
+
+      if(msg.type==='Welcome'){
+        welcomed=true;
+        socket.send(JSON.stringify(agentSettings()));
+        return;
+      }
+
+      if(msg.type==='SettingsApplied'){
+        agentReady=true;
+        settled=true;
+        connection.textContent='Mira is listening';
+        debug.textContent='Deepgram Voice Agent • Nova-3 + managed LLM + Amalthea';
+        resolve();
+        return;
+      }
+
+      if(msg.type==='ConversationText'){
+        if(msg.role==='user'){
+          addMsg('you',msg.content);
+        }else if(msg.role==='assistant'){
+          addMsg('mira',msg.content);
         }
         return;
       }
-      const bytes=event.data instanceof ArrayBuffer?event.data:await event.data.arrayBuffer();
-      if(!bytes.byteLength)return;
-      const samples=new Int16Array(bytes);
-      const audioBuffer=ttsCtx.createBuffer(1,samples.length,TTS_RATE);
-      const channel=audioBuffer.getChannelData(0);
-      for(let i=0;i<samples.length;i++)channel[i]=samples[i]<0?samples[i]/32768:samples[i]/32767;
 
-      const node=ttsCtx.createBufferSource();
-      node.buffer=audioBuffer;
-      node.connect(ttsCtx.destination);
-      const startAt=Math.max(ttsCtx.currentTime+0.01,ttsNextTime);
-      node.start(startAt);
-      ttsNextTime=startAt+audioBuffer.duration;
+      if(msg.type==='AgentStartedSpeaking'){
+        startMouth();
+        statusEl.textContent='Mira is talking…';
+        connection.textContent='Mira is speaking';
+        return;
+      }
+
+      if(msg.type==='UserStartedSpeaking'){
+        stopAgentAudio();
+        connection.textContent='Listening…';
+        return;
+      }
+
+      if(msg.type==='AgentAudioDone'){
+        const wait=Math.max(0,(audioNextTime-audioCtx.currentTime)*1000)+30;
+        setTimeout(()=>{
+          if(agentSocket===socket){
+            stopMouth();
+            statusEl.textContent='Mira is waiting for you…';
+            connection.textContent='Mira is listening';
+          }
+        },wait);
+        return;
+      }
+
+      if(msg.type==='AgentThinking'){
+        connection.textContent='Mira is thinking…';
+        return;
+      }
+
+      if(msg.type==='Error'){
+        showError(new Error(msg.description||msg.code||'Deepgram Agent error'));
+        return;
+      }
+
+      if(msg.type==='Warning'){
+        debug.textContent='Agent warning: '+(msg.description||'unknown');
+      }
     };
   });
-  try{await ttsOpenPromise}
-  catch(e){closeTTS();throw e}
 }
 
-let speakChain=Promise.resolve();
-function speak(text){
-  speakChain=speakChain.then(()=>speakNow(text)).catch(e=>{
-    stopMouth();
-    showError(e);
-  });
-  return speakChain;
+async function sendAgentText(text){
+  text=text.trim();
+  if(!text)return;
+  try{
+    await openAgent();
+    agentSocket.send(JSON.stringify({type:'InjectUserMessage',content:text}));
+  }catch(e){showError(e)}
 }
-async function speakNow(text){
-  if(!key()){connection.textContent='Add your Deepgram key to enable voice';return}
-  await openTTS();
-  await unlockAudio();
 
-  startMouth();
-  statusEl.textContent='Mira is talking…';
-  connection.textContent='Mira is speaking';
-  const myGeneration=++ttsGeneration;
+document.getElementById('heart').onclick=async()=>{
+  await sendAgentText('I just liked you. Give me a cute, flirty response.');
+};
 
-  ttsNextTime=Math.max(ttsNextTime,ttsCtx.currentTime+0.01);
-  ttsSocket.send(JSON.stringify({type:'Speak',text}));
-  ttsSocket.send(JSON.stringify({type:'Flush'}));
+async function startMic(){
+  if(!key()){connection.textContent='Add your Deepgram key first';return}
+  if(stream){stopMic();return}
 
-  await new Promise(resolve=>{
-    const check=()=>{
-      if(myGeneration!==ttsGeneration || !ttsSocket || ttsSocket.readyState!==WebSocket.OPEN){resolve();return}
-      if(ttsNextTime<=ttsCtx.currentTime+0.06 && !speaking){resolve();return}
-      setTimeout(check,60);
+  try{
+    await openAgent();
+
+    stream=await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    });
+    await unlockAudio();
+    source=audioCtx.createMediaStreamSource(stream);
+    processor=audioCtx.createScriptProcessor(4096,1,1);
+
+    processor.onaudioprocess=e=>{
+      if(agentSocket&&agentSocket.readyState===WebSocket.OPEN&&agentReady){
+        const data=downsample(e.inputBuffer.getChannelData(0),audioCtx.sampleRate,16000);
+        agentSocket.send(pcm16(data));
+      }
     };
-    setTimeout(check,60);
-  });
-  if(myGeneration===ttsGeneration){
-    stopMouth();
-    statusEl.textContent='Mira is waiting for you…';
-    connection.textContent='Deepgram ready';
+
+    source.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    keepAlive=setInterval(()=>{
+      if(agentSocket&&agentSocket.readyState===WebSocket.OPEN)
+        agentSocket.send(JSON.stringify({type:'KeepAlive'}));
+    },8000);
+
+    mic.classList.add('live');
+    mic.textContent='■';
+    connection.textContent='Listening…';
+    statusEl.textContent='Mira is listening…';
+  }catch(e){
+    connection.textContent='Microphone error: '+e.message;
+    stopMic();
   }
 }
+
+function stopMic(){
+  if(keepAlive){clearInterval(keepAlive);keepAlive=null}
+  try{processor&&processor.disconnect();source&&source.disconnect()}catch{}
+  processor=null;source=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  mic.classList.remove('live');
+  mic.textContent='🎙';
+  if(agentReady)connection.textContent='Deepgram Agent ready';
+}
+function toggleMic(){if(stream)stopMic();else startMic()}
+mic.onclick=toggleMic;
+document.getElementById('call').onclick=toggleMic;
 
 async function sendText(text){
   text=text.trim();
   if(!text)return;
-  await unlockAudio();
   addMsg('you',text);
-  const r=replyFor(text);
-  addMsg('mira',r);
-  speak(r);
+  await sendAgentText(text);
 }
 
 document.getElementById('form').onsubmit=async e=>{
@@ -303,66 +409,10 @@ function pcm16(f){
   return b;
 }
 
-async function startMic(){
-  if(!key()){connection.textContent='Add your Deepgram key first';return}
-  if(ws){stopMic();return}
-  try{
-    await unlockAudio();
-    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    await audioCtx.resume();
-    source=audioCtx.createMediaStreamSource(stream);
-    processor=audioCtx.createScriptProcessor(4096,1,1);
-
-    const url='wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-US&interim_results=true&punctuate=true&smart_format=true&endpointing=700';
-    ws=new WebSocket(url,['token',key()]);
-    ws.binaryType='arraybuffer';
-
-    ws.onopen=()=>{
-      connection.textContent='Listening…';
-      mic.classList.add('live');
-      mic.textContent='■';
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-      keepAlive=setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'KeepAlive'}))},8000);
-    };
-    ws.onmessage=e=>{
-      let d;try{d=JSON.parse(e.data)}catch{return}
-      const t=d.channel?.alternatives?.[0]?.transcript||'';
-      if(d.is_final&&t){
-        clearTimeout(finalTimer);
-        finalTimer=setTimeout(()=>sendText(t),250);
-      }
-    };
-    ws.onerror=()=>connection.textContent='Deepgram STT connection error';
-    ws.onclose=()=>{mic.classList.remove('live');mic.textContent='🎙';if(connection.textContent==='Listening…')connection.textContent='Microphone stopped'};
-    processor.onaudioprocess=e=>{
-      if(ws&&ws.readyState===WebSocket.OPEN){
-        const data=downsample(e.inputBuffer.getChannelData(0),audioCtx.sampleRate,16000);
-        ws.send(pcm16(data));
-      }
-    };
-  }catch(e){
-    connection.textContent='Microphone error: '+e.message;
-    stopMic();
-  }
-}
-function stopMic(){
-  if(keepAlive){clearInterval(keepAlive);keepAlive=null}
-  if(finalTimer){clearTimeout(finalTimer);finalTimer=null}
-  try{processor&&processor.disconnect();source&&source.disconnect()}catch{}
-  processor=null;source=null;
-  if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}
-  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
-  if(ws){const x=ws;ws=null;try{x.close()}catch{}}
-  mic.classList.remove('live');
-  mic.textContent='🎙';
-}
-function toggleMic(){if(ws)stopMic();else startMic()}
-mic.onclick=toggleMic;
-document.getElementById('call').onclick=toggleMic;
-
-window.addEventListener('beforeunload',closeTTS);
+window.addEventListener('beforeunload',()=>{
+  stopMic();
+  closeAgent();
+});
 </script>
 </body>
 </html>
