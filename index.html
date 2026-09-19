@@ -105,4 +105,88 @@ async function speak(text){
     stopMouth();
     connection.textContent='Voice error: '+e.message;
   }
+async function sendText(text){
+  text=text.trim();
+  if(!text)return;
+  await unlockAudio();
+  addMsg('you',text);
+  const r=replyFor(text);
+  addMsg('mira',r);
+  await speak(r);
 }
+document.getElementById('form').onsubmit=async e=>{
+  e.preventDefault();
+  const input=document.getElementById('text');
+  const value=input.value;
+  input.value='';
+  await sendText(value);
+};
+function downsample(buffer,inputRate,outRate){
+  if(outRate===inputRate)return buffer;
+  const ratio=inputRate/outRate,len=Math.round(buffer.length/ratio),out=new Float32Array(len);
+  let offset=0;
+  for(let i=0;i<len;i++){
+    const end=Math.min(Math.round((i+1)*ratio),buffer.length);
+    let sum=0,count=0;
+    for(let j=offset;j<end;j++){sum+=buffer[j];count++}
+    out[i]=count?sum/count:0;offset=end;
+  }
+  return out;
+}
+function pcm16(f){
+  const b=new ArrayBuffer(f.length*2),v=new DataView(b);
+  for(let i=0;i<f.length;i++){const s=Math.max(-1,Math.min(1,f[i]));v.setInt16(i*2,s<0?s*0x8000:s*0x7fff,true)}
+  return b;
+}
+async function startMic(){
+  if(!key()){connection.textContent='Add your Deepgram key first';return}
+  if(ws){stopMic();return}
+  try{
+    await unlockAudio();
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')await audioCtx.resume();
+    source=audioCtx.createMediaStreamSource(stream);
+    processor=audioCtx.createScriptProcessor(4096,1,1);
+    ws=new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-US&interim_results=true&punctuate=true&smart_format=true&endpointing=700',['token',key()]);
+    ws.onopen=()=>{
+      connection.textContent='Listening…';
+      mic.classList.add('live');mic.textContent='■';
+      source.connect(processor);processor.connect(audioCtx.destination);
+      keepAlive=setInterval(()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'KeepAlive'}))},8000);
+    };
+    ws.onmessage=e=>{
+      let d;try{d=JSON.parse(e.data)}catch{return}
+      const t=d.channel?.alternatives?.[0]?.transcript||'';
+      if(d.is_final&&t){
+        clearTimeout(finalTimer);
+        finalTimer=setTimeout(()=>sendText(t),250);
+      }
+    };
+    ws.onerror=()=>connection.textContent='Deepgram connection error';
+    ws.onclose=()=>{connection.textContent='Microphone stopped';mic.classList.remove('live');mic.textContent='🎙'};
+    processor.onaudioprocess=e=>{
+      if(ws&&ws.readyState===1){
+        const data=downsample(e.inputBuffer.getChannelData(0),audioCtx.sampleRate,16000);
+        ws.send(pcm16(data));
+      }
+    };
+  }catch(e){connection.textContent='Microphone error: '+e.message;stopMic()}
+}
+function stopMic(){
+  if(keepAlive){clearInterval(keepAlive);keepAlive=null}
+  if(finalTimer){clearTimeout(finalTimer);finalTimer=null}
+  try{processor&&processor.disconnect();source&&source.disconnect()}catch{}
+  processor=null;source=null;
+  if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  if(ws){const x=ws;ws=null;try{x.close()}catch{}}
+  mic.classList.remove('live');mic.textContent='🎙';
+}
+function toggleMic(){if(ws)stopMic();else startMic()}
+mic.onclick=toggleMic;
+document.getElementById('call').onclick=toggleMic;
+setFrame(0);
+</script>
+</body>
+</html>
