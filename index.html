@@ -1,1 +1,54 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Mira — AI Companion</title><script src="https://cdn.deepgram.com/widgets/latest/widget.umd.js"></script><link rel="stylesheet" href="/styles.css"></head><body><main class="page"><header><h1>Mira</h1><p>Your gothic voice companion</p></header><section class="card"><div class="mira-stage"><div id="mira-sprite" class="mira-sprite" aria-label="Mira"></div><video id="mira-video" class="mira-video hidden" autoplay playsinline></video><div id="video-status" class="status-pill">Waiting for Mira to speak…</div></div><div class="controls"><div class="connection"><span id="status-dot"></span><span id="status">Loading Mira…</span></div><div id="transcript" class="transcript">Start the conversation and Mira will answer with voice.</div><div id="agent-container"><button id="mira-talk-button" class="talk-button">Talk to Mira</button></div></div><div id="setup" class="setup hidden"><h2>Mira setup</h2><input id="deepgram-key" type="password" placeholder="Deepgram API key"><button id="save-key" class="save-button">Save & start Mira</button><small>The key is stored locally by the Mira EXE.</small></div></section></main><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mira — Gothic AI Companion</title>
+<script src="https://cdn.deepgram.com/widgets/latest/widget.umd.js"></script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-orb">M</div><div><b>MIRA</b><span>AI COMPANION</span></div></div>
+    <button class="nav active" id="nav-chat"><span>♡</span> Chat</button>
+    <button class="nav" id="nav-memory"><span>◈</span> Memory</button>
+    <button class="nav" id="nav-settings"><span>⚙</span> Settings</button>
+    <div class="sidebar-bottom"><div class="online"><i></i><span id="status">Connecting…</span></div></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><h1>Mira</h1><span class="subtitle">your gothic companion</span></div>
+      <div class="top-actions"><button class="icon-btn" id="clear-chat" title="Clear chat">⌫</button><button class="icon-btn" id="settings-btn" title="Settings">⚙</button></div>
+    </header>
+
+    <section class="workspace">
+      <div class="character-card">
+        <div class="glow"></div>
+        <div id="mira-sprite" class="mira-sprite" aria-label="Mira"></div>
+        <video id="mira-video" class="mira-video hidden" autoplay playsinline></video>
+        <div class="character-info"><div class="name-row"><strong>Mira</strong><span class="heart">♥</span></div><span>Gothic AI • Voice companion</span></div>
+        <div class="speaking-badge" id="speaking-badge"><i></i><span id="video-status">Ready</span></div>
+      </div>
+
+      <section class="chat-panel">
+        <div class="chat-head"><div><h2>Conversation</h2><span>Talk naturally with Mira</span></div><div class="pulse-ring" id="pulse-ring"></div></div>
+        <div class="messages" id="messages">
+          <div class="bubble mira-bubble"><div class="bubble-name">Mira</div><span>Hi, I’m Mira. It’s nice to hear your voice.</span></div>
+        </div>
+        <div class="voice-area">
+          <div id="agent-container"><button id="mira-talk-button" class="talk-button"><span class="mic">●</span><span>Talk to Mira</span></button></div>
+          <div class="voice-hint">Click to start a voice conversation</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="setup hidden" id="setup">
+      <div class="setup-card"><h2>Connect Mira</h2><p>Enter your Deepgram API key to enable voice.</p><input id="deepgram-key" type="password" placeholder="Deepgram API key"><button id="save-key">Connect</button><small>Your key is handled by the local Mira EXE.</small></div>
+    </section>
+  </main>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
