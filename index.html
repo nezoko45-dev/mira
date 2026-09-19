@@ -8,17 +8,20 @@
 :root{--bg:#09070d;--card:#15101c;--line:#30243b;--pink:#ff5fa2;--muted:#a99db4}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 15%,#24142d 0,#0b0810 48%,#050407 100%);color:#fff;font-family:Inter,system-ui,Segoe UI,sans-serif;display:grid;place-items:center;padding:20px}
 .app{width:min(100%,1050px);min-height:700px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
-.card,.chat{background:rgba(15,11,20,.88);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 80px #0009;overflow:hidden}
-.card{position:relative;display:flex;flex-direction:column}
-.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
+.card,.chat{background:rgba(15,11,20,.9);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 80px #0009;overflow:hidden}
+.card{position:relative;display:flex;flex-direction:column}.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
 .logo{font-weight:800;letter-spacing:.08em}.online{font-size:12px;color:#8dffbd}
 .stage{flex:1;display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 55%,#382040 0,#17101f 38%,#0b0810 72%)}
-.sprite{width:min(78%,620px);aspect-ratio:1/1.18;background-image:url("ChatGPT%20Image%20Sep%2018,%202026,%2006_48_03%20PM.png");background-size:300% 200%;background-repeat:no-repeat;background-position:0 0;filter:drop-shadow(0 18px 35px #000b);transition:transform .12s}
+.sprite{width:min(78%,620px);aspect-ratio:1/1.18;background-image:url("ChatGPT%20Image%20Sep%2018,%202026,%2006_48_03%20PM.png");background-size:300% 200%;background-repeat:no-repeat;background-position:0 0;filter:drop-shadow(0 18px 35px #000b)}
 .status{position:absolute;left:20px;bottom:18px;padding:9px 13px;border:1px solid #ffffff18;border-radius:999px;background:#09070dcc;color:#d8cedf;font-size:12px;backdrop-filter:blur(8px)}
 .profile{padding:18px 22px}.name{font-size:28px;font-weight:800}.bio{color:var(--muted);margin-top:5px}.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.tag{border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:#d8cadf;font-size:12px}
-.actions{display:flex;gap:10px;padding:0 22px 22px}.btn{flex:1;border:0;border-radius:14px;padding:13px 14px;font-weight:800;cursor:pointer;color:#fff;background:#251a2e}.btn:hover{filter:brightness(1.15)}.like{background:linear-gradient(135deg,#ff4c91,#9b55ff)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:10px;padding:0 22px 22px}.btn{flex:1;border:0;border-radius:14px;padding:13px 14px;font-weight:800;cursor:pointer;color:#fff;background:#251a2e}.btn:hover{filter:brightness(1.15)}.like{background:linear-gradient(135deg,#ff4c91,#9b55ff)}
 .chat{display:flex;flex-direction:column;min-height:0}.chatHead{padding:18px;border-bottom:1px solid var(--line)}.chatHead b{display:block}.chatHead small{color:#8dffbd}
-.messages{flex:1;padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px}.msg{max-width:88%;padding:11px 13px;border-radius:16px;line-height:1.4;font-size:14px}.mira{align-self:flex-start;background:#211728;border:1px solid #382642}.you{align-self:flex-end;background:#7e315b}.composer{padding:12px;border-top:1px solid var(--line);display:flex;gap:8px}.composer input{min-width:0;flex:1;border:1px solid var(--line);background:#0d0911;color:#fff;border-radius:12px;padding:12px}.mic{width:48px;border:0;border-radius:12px;background:#ff5fa2;color:#180b13;font-size:19px;cursor:pointer}.mic.live{background:#ff3030;color:#fff;animation:pulse 1s infinite}.setup{padding:12px 16px;border-top:1px solid var(--line);background:#0d0912}.setup summary{cursor:pointer;color:#d9cce0;font-size:12px}.setupRow{display:flex;gap:7px;margin-top:10px}.setup input{flex:1;min-width:0;background:#08060b;border:1px solid var(--line);color:#fff;border-radius:9px;padding:9px}.setup button{border:1px solid var(--line);background:#20172a;color:#fff;border-radius:9px;padding:8px 10px;cursor:pointer}
+.messages{flex:1;padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px}.msg{max-width:88%;padding:11px 13px;border-radius:16px;line-height:1.4;font-size:14px}.mira{align-self:flex-start;background:#211728;border:1px solid #382642}.you{align-self:flex-end;background:#7e315b}
+.composer{padding:12px;border-top:1px solid var(--line);display:flex;gap:8px}.composer input{min-width:0;flex:1;border:1px solid var(--line);background:#0d0911;color:#fff;border-radius:12px;padding:12px}.composer button[type=submit]{border:0;border-radius:12px;background:#7e315b;color:#fff;padding:0 13px;cursor:pointer}
+.mic{width:48px;border:0;border-radius:12px;background:#ff5fa2;color:#180b13;font-size:19px;cursor:pointer}.mic.live{background:#ff3030;color:#fff;animation:pulse 1s infinite}
+.setup{padding:12px 16px;border-top:1px solid var(--line);background:#0d0912}.setup summary{cursor:pointer;color:#d9cce0;font-size:12px}.setupRow{display:flex;gap:7px;margin-top:10px}.setup input{flex:1;min-width:0;background:#08060b;border:1px solid var(--line);color:#fff;border-radius:9px;padding:9px}.setup button{border:1px solid var(--line);background:#20172a;color:#fff;border-radius:9px;padding:8px 10px;cursor:pointer}
+.debug{padding:8px 16px;color:#766a80;font-size:10px;border-top:1px solid #ffffff08}
 @keyframes pulse{50%{box-shadow:0 0 0 7px #ff303033}}
 @media(max-width:800px){.app{grid-template-columns:1fr}.chat{min-height:430px}.card{min-height:680px}}
 </style>
@@ -34,31 +37,79 @@
 <section class="chat">
   <div class="chatHead"><b>Chat with Mira</b><small id="connection">Deepgram ready when you are</small></div>
   <div id="messages" class="messages"><div class="msg mira">Hey… I was wondering when you'd come talk to me. 💜</div></div>
-  <form id="form" class="composer"><input id="text" autocomplete="off" placeholder="Type something…"><button class="mic" id="mic" type="button" title="Start microphone">🎙</button></form>
-  <details class="setup"><summary>Deepgram API key</summary><div class="setupRow"><input id="key" type="password" placeholder="Paste your Deepgram key"><button id="save" type="button">Save</button></div><small style="color:#8f8299;display:block;margin-top:7px">Stored only in this browser. A browser-only app exposes the key to the client; use a short-lived token/backend for production.</small></details>
+  <form id="form" class="composer"><input id="text" autocomplete="off" placeholder="Type something…"><button class="mic" id="mic" type="button" title="Start microphone">🎙</button><button type="submit" aria-label="Send">➤</button></form>
+  <details class="setup"><summary>Deepgram API key</summary><div class="setupRow"><input id="key" type="password" placeholder="Paste your Deepgram key"><button id="save" type="button">Save</button></div><small style="color:#8f8299;display:block;margin-top:7px">The browser uses the key in the WebSocket subprotocol. For production, use a short-lived token from your server.</small></details>
+  <div id="debug" class="debug">TTS: WebSocket /v1/speak • Aura-2 Amalthea • 24 kHz PCM</div>
 </section>
 </div>
 <script>
-const COLS=3, ROWS=2, FRAME_MS=420;
-const sprite=document.getElementById('sprite'), statusEl=document.getElementById('status'), messages=document.getElementById('messages');
-const keyInput=document.getElementById('key'), connection=document.getElementById('connection'), mic=document.getElementById('mic');
-let frame=0, speaking=false, anim=null, ws=null, stream=null, audioCtx=null, processor=null, source=null, keepAlive=null, finalTimer=null, lastTranscript='',ttsCtx=null,ttsSource=null;
+'use strict';
+
+const COLS=3, ROWS=2, FRAME_MS=420, TTS_RATE=24000;
+const sprite=document.getElementById('sprite');
+const statusEl=document.getElementById('status');
+const messages=document.getElementById('messages');
+const keyInput=document.getElementById('key');
+const connection=document.getElementById('connection');
+const debug=document.getElementById('debug');
+const mic=document.getElementById('mic');
+
+let anim=null;
+let ws=null, stream=null, audioCtx=null, processor=null, source=null, keepAlive=null, finalTimer=null;
+let ttsCtx=null, ttsSocket=null, ttsNextTime=0, ttsGeneration=0, ttsOpenPromise=null;
+let speaking=false;
+
 keyInput.value=localStorage.getItem('mira_dg_key')||'';
 
 async function unlockAudio(){
-  try{
-    if(!ttsCtx)ttsCtx=new (window.AudioContext||window.webkitAudioContext)();
-    if(ttsCtx.state==='suspended')await ttsCtx.resume();
-  }catch{}
+  if(!ttsCtx) ttsCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(ttsCtx.state==='suspended') await ttsCtx.resume();
 }
 
-function setFrame(n){const c=n%COLS,r=Math.floor(n/COLS);sprite.style.backgroundPosition=(c*50)+'% '+(r*100)+'%';}
-function startMouth(){if(anim)return;speaking=true;let n=0;setFrame(0);anim=setInterval(()=>{n=(n+1)%(COLS*ROWS);setFrame(n)},FRAME_MS)}
-function stopMouth(){speaking=false;if(anim){clearInterval(anim);anim=null}setFrame(0)}
-function addMsg(who,text){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;messages.appendChild(d);messages.scrollTop=messages.scrollHeight}
+function setFrame(n){
+  const c=n%COLS, r=Math.floor(n/COLS);
+  sprite.style.backgroundPosition=(c*50)+'% '+(r*100)+'%';
+}
+function startMouth(){
+  if(anim)return;
+  speaking=true;
+  let n=0;
+  setFrame(0);
+  anim=setInterval(()=>{n=(n+1)%(COLS*ROWS);setFrame(n)},FRAME_MS);
+}
+function stopMouth(){
+  speaking=false;
+  if(anim){clearInterval(anim);anim=null}
+  setFrame(0);
+}
+function addMsg(who,text){
+  const d=document.createElement('div');
+  d.className='msg '+who;
+  d.textContent=text;
+  messages.appendChild(d);
+  messages.scrollTop=messages.scrollHeight;
+}
 function key(){return keyInput.value.trim()}
-document.getElementById('save').onclick=async()=>{localStorage.setItem('mira_dg_key',key());await unlockAudio();connection.textContent=key()?'Deepgram key saved':'Add a Deepgram key'};
-document.getElementById('heart').onclick=async()=>{await unlockAudio();addMsg('mira','Aww… you liked me? That makes me blush. 💕');speak('Aww… you liked me? That makes me blush.');};
+function showError(e){
+  const msg=e&&e.message?e.message:String(e);
+  connection.textContent=msg.length>70?msg.slice(0,70)+'…':msg;
+  debug.textContent='TTS error: '+msg;
+}
+
+document.getElementById('save').onclick=async()=>{
+  localStorage.setItem('mira_dg_key',key());
+  if(key()){
+    connection.textContent='Deepgram key saved';
+    await unlockAudio();
+  }else connection.textContent='Add a Deepgram key';
+};
+
+document.getElementById('heart').onclick=async()=>{
+  await unlockAudio();
+  const text='Aww… you liked me? That makes me blush. 💕';
+  addMsg('mira',text);
+  speak(text);
+};
 
 const replies=[
   [/hello|hi|hey/i,'Hey you. I’m Mira. I was hoping you’d say hello. 💜'],
@@ -68,43 +119,128 @@ const replies=[
   [/music|song/i,'I love moody music at night. It makes everything feel a little more romantic.'],
   [/bye|goodnight/i,'Goodnight, you. Come back when the moon is up. 🌙']
 ];
-function replyFor(t){for(const [re,r] of replies)if(re.test(t))return r;return ['Tell me more… I’m listening.','Hmm… I like where this conversation is going.','Really? You have my attention now.','That’s interesting. Keep talking to me.'][Math.floor(Math.random()*4)]}
+function replyFor(t){
+  for(const [re,r] of replies)if(re.test(t))return r;
+  return ['Tell me more… I’m listening.','Hmm… I like where this conversation is going.','Really? You have my attention now.','That’s interesting. Keep talking to me.'][Math.floor(Math.random()*4)];
+}
 
-async function speak(text){
-  if(!key()){connection.textContent='Add your Deepgram key to enable voice';return}
-  await unlockAudio();
-  startMouth();statusEl.textContent='Mira is talking…';connection.textContent='Mira is speaking';
-  try{
-    const res=await fetch('https://api.deepgram.com/v1/speak?model=aura-2-amalthea-en&encoding=mp3&container=mp3',{
-      method:'POST',
-      headers:{'Authorization':'Token '+key(),'Content-Type':'application/json'},
-      body:JSON.stringify({text})
-    });
-    if(!res.ok){
-      let detail='';
-      try{detail=await res.text()}catch{}
-      throw new Error('TTS '+res.status+(detail?' — '+detail.slice(0,120):''));
-    }
-    const data=await res.arrayBuffer();
-    if(!data.byteLength)throw new Error('Empty TTS audio');
-    await unlockAudio();
-    const buffer=await ttsCtx.decodeAudioData(data.slice(0));
-    if(ttsSource){try{ttsSource.stop()}catch{}}
-    ttsSource=ttsCtx.createBufferSource();
-    ttsSource.buffer=buffer;
-    ttsSource.connect(ttsCtx.destination);
-    ttsSource.onended=()=>{
-      if(ttsSource)ttsSource.disconnect();
-      ttsSource=null;
-      stopMouth();
-      statusEl.textContent='Mira is waiting for you…';
-      connection.textContent='Deepgram ready';
-    };
-    ttsSource.start(0);
-  }catch(e){
-    stopMouth();
-    connection.textContent='Voice error: '+e.message;
+function closeTTS(){
+  if(ttsSocket){
+    try{ttsSocket.close()}catch{}
+    ttsSocket=null;
   }
+  ttsOpenPromise=null;
+}
+
+async function openTTS(){
+  await unlockAudio();
+  if(ttsSocket && ttsSocket.readyState===WebSocket.OPEN)return;
+  if(ttsOpenPromise)return ttsOpenPromise;
+  if(!key())throw new Error('Add your Deepgram key first');
+
+  ttsOpenPromise=new Promise((resolve,reject)=>{
+    const url='wss://api.deepgram.com/v1/speak?model=aura-2-amalthea-en&encoding=linear16&sample_rate='+TTS_RATE;
+    let settled=false;
+    const socket=new WebSocket(url,['token',key()]);
+    ttsSocket=socket;
+
+    const fail=(err)=>{
+      if(!settled){settled=true;reject(err)}
+    };
+
+    socket.binaryType='arraybuffer';
+    socket.onopen=()=>{
+      settled=true;
+      ttsNextTime=Math.max(ttsCtx.currentTime,ttsNextTime);
+      connection.textContent='Mira is connected';
+      debug.textContent='TTS WebSocket connected • Amalthea';
+      resolve();
+    };
+    socket.onerror=()=>fail(new Error('Deepgram TTS WebSocket connection failed'));
+    socket.onclose=()=>{
+      if(ttsSocket===socket)ttsSocket=null;
+      ttsOpenPromise=null;
+      if(!settled)fail(new Error('Deepgram TTS WebSocket closed'));
+      if(speaking && ttsNextTime<=ttsCtx.currentTime+0.05){
+        stopMouth();
+        connection.textContent='Deepgram TTS disconnected';
+      }
+    };
+    socket.onmessage=async event=>{
+      if(typeof event.data==='string'){
+        let msg;
+        try{msg=JSON.parse(event.data)}catch{return}
+        if(msg.type==='Metadata'){
+          debug.textContent='TTS: '+(msg.model_name||'Amalthea')+' connected';
+        }else if(msg.type==='Warning'){
+          debug.textContent='TTS warning: '+(msg.description||'unknown');
+        }else if(msg.type==='Flushed'){
+          const wait=Math.max(0,(ttsNextTime-ttsCtx.currentTime)*1000)+80;
+          setTimeout(()=>{
+            if(speaking){
+              stopMouth();
+              connection.textContent='Deepgram ready';
+            }
+          },wait);
+        }
+        return;
+      }
+      const bytes=event.data instanceof ArrayBuffer?event.data:await event.data.arrayBuffer();
+      if(!bytes.byteLength)return;
+      const samples=new Int16Array(bytes);
+      const audioBuffer=ttsCtx.createBuffer(1,samples.length,TTS_RATE);
+      const channel=audioBuffer.getChannelData(0);
+      for(let i=0;i<samples.length;i++)channel[i]=samples[i]<0?samples[i]/32768:samples[i]/32767;
+
+      const node=ttsCtx.createBufferSource();
+      node.buffer=audioBuffer;
+      node.connect(ttsCtx.destination);
+      const startAt=Math.max(ttsCtx.currentTime+0.01,ttsNextTime);
+      node.start(startAt);
+      ttsNextTime=startAt+audioBuffer.duration;
+    };
+  });
+  try{await ttsOpenPromise}
+  catch(e){closeTTS();throw e}
+}
+
+let speakChain=Promise.resolve();
+function speak(text){
+  speakChain=speakChain.then(()=>speakNow(text)).catch(e=>{
+    stopMouth();
+    showError(e);
+  });
+  return speakChain;
+}
+async function speakNow(text){
+  if(!key()){connection.textContent='Add your Deepgram key to enable voice';return}
+  await openTTS();
+  await unlockAudio();
+
+  startMouth();
+  statusEl.textContent='Mira is talking…';
+  connection.textContent='Mira is speaking';
+  const myGeneration=++ttsGeneration;
+
+  ttsNextTime=Math.max(ttsNextTime,ttsCtx.currentTime+0.01);
+  ttsSocket.send(JSON.stringify({type:'Speak',text}));
+  ttsSocket.send(JSON.stringify({type:'Flush'}));
+
+  await new Promise(resolve=>{
+    const check=()=>{
+      if(myGeneration!==ttsGeneration || !ttsSocket || ttsSocket.readyState!==WebSocket.OPEN){resolve();return}
+      if(ttsNextTime<=ttsCtx.currentTime+0.06 && !speaking){resolve();return}
+      setTimeout(check,60);
+    };
+    setTimeout(check,60);
+  });
+  if(myGeneration===ttsGeneration){
+    stopMouth();
+    statusEl.textContent='Mira is waiting for you…';
+    connection.textContent='Deepgram ready';
+  }
+}
+
 async function sendText(text){
   text=text.trim();
   if(!text)return;
@@ -112,8 +248,9 @@ async function sendText(text){
   addMsg('you',text);
   const r=replyFor(text);
   addMsg('mira',r);
-  await speak(r);
+  speak(r);
 }
+
 document.getElementById('form').onsubmit=async e=>{
   e.preventDefault();
   const input=document.getElementById('text');
@@ -121,23 +258,31 @@ document.getElementById('form').onsubmit=async e=>{
   input.value='';
   await sendText(value);
 };
+
 function downsample(buffer,inputRate,outRate){
   if(outRate===inputRate)return buffer;
-  const ratio=inputRate/outRate,len=Math.round(buffer.length/ratio),out=new Float32Array(len);
+  const ratio=inputRate/outRate;
+  const len=Math.round(buffer.length/ratio);
+  const out=new Float32Array(len);
   let offset=0;
   for(let i=0;i<len;i++){
     const end=Math.min(Math.round((i+1)*ratio),buffer.length);
     let sum=0,count=0;
     for(let j=offset;j<end;j++){sum+=buffer[j];count++}
-    out[i]=count?sum/count:0;offset=end;
+    out[i]=count?sum/count:0;
+    offset=end;
   }
   return out;
 }
 function pcm16(f){
   const b=new ArrayBuffer(f.length*2),v=new DataView(b);
-  for(let i=0;i<f.length;i++){const s=Math.max(-1,Math.min(1,f[i]));v.setInt16(i*2,s<0?s*0x8000:s*0x7fff,true)}
+  for(let i=0;i<f.length;i++){
+    const s=Math.max(-1,Math.min(1,f[i]));
+    v.setInt16(i*2,s<0?s*0x8000:s*0x7fff,true);
+  }
   return b;
 }
+
 async function startMic(){
   if(!key()){connection.textContent='Add your Deepgram key first';return}
   if(ws){stopMic();return}
@@ -145,15 +290,21 @@ async function startMic(){
     await unlockAudio();
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended')await audioCtx.resume();
+    await audioCtx.resume();
     source=audioCtx.createMediaStreamSource(stream);
     processor=audioCtx.createScriptProcessor(4096,1,1);
-    ws=new WebSocket('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-US&interim_results=true&punctuate=true&smart_format=true&endpointing=700',['token',key()]);
+
+    const url='wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-US&interim_results=true&punctuate=true&smart_format=true&endpointing=700';
+    ws=new WebSocket(url,['token',key()]);
+    ws.binaryType='arraybuffer';
+
     ws.onopen=()=>{
       connection.textContent='Listening…';
-      mic.classList.add('live');mic.textContent='■';
-      source.connect(processor);processor.connect(audioCtx.destination);
-      keepAlive=setInterval(()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'KeepAlive'}))},8000);
+      mic.classList.add('live');
+      mic.textContent='■';
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+      keepAlive=setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'KeepAlive'}))},8000);
     };
     ws.onmessage=e=>{
       let d;try{d=JSON.parse(e.data)}catch{return}
@@ -163,15 +314,18 @@ async function startMic(){
         finalTimer=setTimeout(()=>sendText(t),250);
       }
     };
-    ws.onerror=()=>connection.textContent='Deepgram connection error';
-    ws.onclose=()=>{connection.textContent='Microphone stopped';mic.classList.remove('live');mic.textContent='🎙'};
+    ws.onerror=()=>connection.textContent='Deepgram STT connection error';
+    ws.onclose=()=>{mic.classList.remove('live');mic.textContent='🎙';if(connection.textContent==='Listening…')connection.textContent='Microphone stopped'};
     processor.onaudioprocess=e=>{
-      if(ws&&ws.readyState===1){
+      if(ws&&ws.readyState===WebSocket.OPEN){
         const data=downsample(e.inputBuffer.getChannelData(0),audioCtx.sampleRate,16000);
         ws.send(pcm16(data));
       }
     };
-  }catch(e){connection.textContent='Microphone error: '+e.message;stopMic()}
+  }catch(e){
+    connection.textContent='Microphone error: '+e.message;
+    stopMic();
+  }
 }
 function stopMic(){
   if(keepAlive){clearInterval(keepAlive);keepAlive=null}
@@ -181,12 +335,15 @@ function stopMic(){
   if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
   if(ws){const x=ws;ws=null;try{x.close()}catch{}}
-  mic.classList.remove('live');mic.textContent='🎙';
+  mic.classList.remove('live');
+  mic.textContent='🎙';
 }
 function toggleMic(){if(ws)stopMic();else startMic()}
 mic.onclick=toggleMic;
 document.getElementById('call').onclick=toggleMic;
+
 setFrame(0);
+window.addEventListener('beforeunload',closeTTS);
 </script>
 </body>
 </html>
