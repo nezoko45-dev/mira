@@ -173,7 +173,7 @@ function agentSettings(){
       think:{
         provider:{
           type:'open_ai',
-          model:'gpt-5.6-luna',
+          model:'gpt-4o-mini',
           temperature:0.8
         },
         prompt:'You are Mira, a gothic, playful, affectionate dating companion. Speak naturally and warmly. Keep replies short, usually one or two sentences, because your responses are spoken aloud. Be flirty and mysterious without being explicit. Never use markdown, lists, or stage directions. Remember the conversation and respond directly to what the user says.'
@@ -249,7 +249,7 @@ async function openAgent(){
         agentReady=true;
         settled=true;
         connection.textContent='Mira is listening';
-        debug.textContent='Deepgram Voice Agent • Nova-3 + managed LLM + Amalthea';
+        debug.textContent='Deepgram Voice Agent • Nova-3 + GPT-4o-mini + Amalthea';
         resolve();
         return;
       }
