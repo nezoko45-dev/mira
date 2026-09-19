@@ -38,7 +38,7 @@
   <div class="chatHead"><b>Chat with Mira</b><small id="connection">Deepgram ready when you are</small></div>
   <div id="messages" class="messages"><div class="msg mira">Hey… I was wondering when you'd come talk to me. 💜</div></div>
   <form id="form" class="composer"><input id="text" autocomplete="off" placeholder="Type something…"><button class="mic" id="mic" type="button" title="Start microphone">🎙</button><button type="submit" aria-label="Send">➤</button></form>
-  <details class="setup"><summary>Deepgram API key</summary><div class="setupRow"><input id="key" type="password" placeholder="Paste your Deepgram key"><button id="save" type="button">Save</button></div><small style="color:#8f8299;display:block;margin-top:7px">The browser uses the key in the WebSocket subprotocol. For production, use a short-lived token from your server.</small></details>
+  <details class="setup"><summary>API keys</summary><div class="setupRow"><input id="key" type="password" placeholder="Deepgram API key"><input id="groqKey" type="password" placeholder="Groq API key"><button id="save" type="button">Save</button></div><small style="color:#8f8299;display:block;margin-top:7px">Deepgram handles the microphone/TTS. Groq handles Mira's replies. Keys are stored only in this browser.</small></details>
   <div id="debug" class="debug">TTS: WebSocket /v1/speak • Aura-2 Amalthea • 24 kHz PCM</div>
 </section>
 </div>
@@ -71,6 +71,7 @@ sourceImage.onerror=()=>{debug.textContent='Could not load Mira spritesheet'};
 const statusEl=document.getElementById('status');
 const messages=document.getElementById('messages');
 const keyInput=document.getElementById('key');
+const groqKeyInput=document.getElementById('groqKey');
 const connection=document.getElementById('connection');
 const debug=document.getElementById('debug');
 const mic=document.getElementById('mic');
@@ -114,6 +115,7 @@ function addMsg(who,text){
   messages.scrollTop=messages.scrollHeight;
 }
 function key(){return keyInput.value.trim()}
+function groqKey(){return groqKeyInput.value.trim()}
 function showError(e){
   const msg=e&&e.message?e.message:String(e);
   connection.textContent=msg.length>70?msg.slice(0,70)+'…':msg;
@@ -122,10 +124,11 @@ function showError(e){
 
 document.getElementById('save').onclick=async()=>{
   localStorage.setItem('mira_dg_key',key());
-  if(key()){
-    connection.textContent='Deepgram Agent key saved';
+  localStorage.setItem('mira_groq_key',groqKey());
+  if(key()&&groqKey()){
+    connection.textContent='Deepgram + Groq keys saved';
     await unlockAudio();
-  }else connection.textContent='Add a Deepgram key';
+  }else connection.textContent='Add both API keys';
 };
 
 async function stopAgentAudio(){
@@ -172,9 +175,13 @@ function agentSettings(){
       },
       think:{
         provider:{
-          type:'open_ai',
-          model:'gpt-4o',
+          type:'groq',
+          model:'openai/gpt-oss-20b',
           temperature:0.8
+        },
+        endpoint:{
+          url:'https://api.groq.com/openai/v1/chat/completions',
+          headers:{authorization:'Bearer '+groqKey()}
         },
         prompt:'You are Mira, a gothic, playful, affectionate dating companion. Speak naturally and warmly. Keep replies short, usually one or two sentences, because your responses are spoken aloud. Be flirty and mysterious without being explicit. Never use markdown, lists, or stage directions. Remember the conversation and respond directly to what the user says.'
       },
@@ -200,7 +207,7 @@ function closeAgent(){
 async function openAgent(){
   await unlockAudio();
   if(agentSocket&&agentSocket.readyState===WebSocket.OPEN&&agentReady)return;
-  if(!key())throw new Error('Add your Deepgram key first');
+  if(!key()||!groqKey())throw new Error('Add both your Deepgram and Groq API keys first');
 
   closeAgent();
   await unlockAudio();
@@ -226,7 +233,7 @@ async function openAgent(){
 
     socket.onclose=()=>{
       agentReady=false;
-      const msg='Deepgram Voice Agent disconnected. Check the error shown above.';
+      const msg='Deepgram Voice Agent disconnected. Check the API keys and Agent error.';
       if(!settled){settled=true;reject(new Error(msg))}
       else if(stream)connection.textContent=msg;
     };
@@ -250,17 +257,14 @@ async function openAgent(){
         agentReady=true;
         settled=true;
         connection.textContent='Mira is listening';
-        debug.textContent='Deepgram Voice Agent • Nova-3 + Gemini 3.5 Flash + Amalthea';
+        debug.textContent='Deepgram Voice Agent • Nova-3 + Groq GPT-OSS 20B + Amalthea';
         resolve();
         return;
       }
 
-      if(msg.type==='ConversationText'){
-        if(msg.role==='user'){
-          addMsg('you',msg.content);
-        }else if(msg.role==='assistant'){
-          addMsg('mira',msg.content);
-        }
+      if(msg.type==='History'){
+        if(msg.role==='user' && msg.content) addMsg('you',msg.content);
+        else if((msg.role==='assistant'||msg.role==='agent') && msg.content) addMsg('mira',msg.content);
         return;
       }
 
