@@ -39,7 +39,7 @@
 </section>
 </div>
 <script>
-const COLS=3, ROWS=2, FRAME_MS=115;
+const COLS=3, ROWS=2, FRAME_MS=420;
 const sprite=document.getElementById('sprite'), statusEl=document.getElementById('status'), messages=document.getElementById('messages');
 const keyInput=document.getElementById('key'), connection=document.getElementById('connection'), mic=document.getElementById('mic');
 let frame=0, speaking=false, anim=null, ws=null, stream=null, audioCtx=null, processor=null, source=null, keepAlive=null, finalTimer=null, lastTranscript='';
@@ -69,7 +69,7 @@ async function speak(text){
   try{
     const res=await fetch('https://api.deepgram.com/v1/speak?model=aura-2-amalthea-en&encoding=mp3&container=mp3',{method:'POST',headers:{'Authorization':'Token '+key(),'Content-Type':'application/json'},body:JSON.stringify({text})});
     if(!res.ok)throw new Error('TTS '+res.status);
-    const blob=await res.blob(), url=URL.createObjectURL(blob), audio=new Audio(url);
+    const blob=await res.blob(); if(!blob.size) throw new Error('Empty TTS audio'); const url=URL.createObjectURL(blob), audio=new Audio(); audio.preload='auto'; audio.src=url;
     audio.onended=()=>{URL.revokeObjectURL(url);stopMouth();statusEl.textContent='Mira is waiting for you…';connection.textContent='Deepgram ready'};
     audio.onerror=()=>{stopMouth();connection.textContent='Audio playback failed'};
     await audio.play();
