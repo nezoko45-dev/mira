@@ -60,11 +60,14 @@ sourceImage.onload=()=>{
     canvas.height=Math.round(cellH);
     const ctx=canvas.getContext('2d');
     const c=i%COLS, r=Math.floor(i/COLS);
+    ctx.imageSmoothingEnabled=true;
     ctx.drawImage(sourceImage,c*cellW,r*cellH,cellW,cellH,0,0,canvas.width,canvas.height);
+    canvas.setAttribute('aria-label','Mira frame '+(i+1));
     book.appendChild(canvas);
     frames.push(canvas);
   }
   framesReady=true;
+  // Only the first grid cell is visible until Mira actually speaks.
   setFrame(0);
 };
 sourceImage.onerror=()=>{debug.textContent='Could not load Mira spritesheet'};
@@ -145,9 +148,11 @@ async function stopAgentAudio(){
 
 function playAgentAudio(bytes){
   if(!audioCtx)return;
+  // Audio arriving means Mira is actually speaking: drive the flipbook from the audio stream.
+  startMouth();
   const samples=new Int16Array(bytes);
   if(!samples.length)return;
-  const buffer=audioCtx.createBuffer(1,samples.length,24000);
+  const buffer=audioCtx.createBuffer(1,samples.length,TTS_RATE);
   const channel=buffer.getChannelData(0);
   for(let i=0;i<samples.length;i++)channel[i]=samples[i]<0?samples[i]/32768:samples[i]/32767;
 
