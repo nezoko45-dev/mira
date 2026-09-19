@@ -12,7 +12,7 @@
 .card{position:relative;display:flex;flex-direction:column}.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
 .logo{font-weight:800;letter-spacing:.08em}.online{font-size:12px;color:#8dffbd}
 .stage{flex:1;display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 55%,#382040 0,#17101f 38%,#0b0810 72%)}
-.book{position:relative;width:min(78%,620px);aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden;filter:drop-shadow(0 18px 35px #000b)}.frame{grid-area:1/1;width:100%;height:100%;display:block;visibility:hidden;opacity:0;object-fit:contain;object-position:50% 50%;margin:0;padding:0;transform:none;transition:opacity .08s linear;will-change:opacity}.frame.active{visibility:visible;opacity:1}
+.book{position:relative;width:min(78%,620px);aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden;filter:drop-shadow(0 18px 35px #000b)}.frame{grid-area:1/1;width:100%;height:100%;display:block;visibility:hidden;opacity:0;object-fit:contain;object-position:50% 50%;margin:0;padding:0;transform:none}.frame.active{visibility:visible;opacity:1}
 .status{position:absolute;left:20px;bottom:18px;padding:9px 13px;border:1px solid #ffffff18;border-radius:999px;background:#09070dcc;color:#d8cedf;font-size:12px;backdrop-filter:blur(8px)}
 .profile{padding:18px 22px}.name{font-size:28px;font-weight:800}.bio{color:var(--muted);margin-top:5px}.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.tag{border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:#d8cadf;font-size:12px}
 .actions{display:flex;gap:10px;padding:0 22px 22px}.btn{flex:1;border:0;border-radius:14px;padding:13px 14px;font-weight:800;cursor:pointer;color:#fff;background:#251a2e}.btn:hover{filter:brightness(1.15)}.like{background:linear-gradient(135deg,#ff4c91,#9b55ff)}
@@ -45,7 +45,7 @@
 <script>
 'use strict';
 
-const COLS=3, ROWS=2, FRAME_MS=70, TTS_RATE=24000;
+const COLS=3, ROWS=2, FRAME_MS=110, TTS_RATE=24000;
 const book=document.getElementById('book');
 const frames=[];
 const sourceImage=new Image();
@@ -97,10 +97,14 @@ function setFrame(n){
 function startMouth(){
   if(anim)return;
   speaking=true;
-  const upwardOrder=[3,0,4,1,5,2];
+  // Flipbook order: each cropped cell is one complete frame.
+  const flipbook=[0,1,2,3,4,5];
   let p=0;
-  setFrame(upwardOrder[0]);
-  anim=setInterval(()=>{p=(p+1)%upwardOrder.length;setFrame(upwardOrder[p])},FRAME_MS);
+  setFrame(flipbook[p]);
+  anim=setInterval(()=>{
+    p=(p+1)%flipbook.length;
+    setFrame(flipbook[p]);
+  },FRAME_MS);
 }
 function stopMouth(){
   speaking=false;
