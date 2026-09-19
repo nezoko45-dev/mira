@@ -1,54 +1,127 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Mira — Gothic AI Companion</title>
-<script src="https://cdn.deepgram.com/widgets/latest/widget.umd.js"></script>
-<link rel="stylesheet" href="/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mira — Gothic Dating</title>
+<style>
+:root{--bg:#09070d;--card:#15101c;--line:#30243b;--pink:#ff5fa2;--muted:#a99db4}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 15%,#24142d 0,#0b0810 48%,#050407 100%);color:#fff;font-family:Inter,system-ui,Segoe UI,sans-serif;display:grid;place-items:center;padding:20px}
+.app{width:min(100%,1050px);min-height:700px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
+.card,.chat{background:rgba(15,11,20,.88);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 80px #0009;overflow:hidden}
+.card{position:relative;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
+.logo{font-weight:800;letter-spacing:.08em}.online{font-size:12px;color:#8dffbd}
+.stage{flex:1;display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 55%,#382040 0,#17101f 38%,#0b0810 72%)}
+.sprite{width:min(78%,620px);aspect-ratio:1/1.18;background-image:url("ChatGPT%20Image%20Sep%2018,%202026,%2006_48_03%20PM.png");background-size:300% 200%;background-repeat:no-repeat;background-position:0 0;filter:drop-shadow(0 18px 35px #000b);transition:transform .12s}
+.status{position:absolute;left:20px;bottom:18px;padding:9px 13px;border:1px solid #ffffff18;border-radius:999px;background:#09070dcc;color:#d8cedf;font-size:12px;backdrop-filter:blur(8px)}
+.profile{padding:18px 22px}.name{font-size:28px;font-weight:800}.bio{color:var(--muted);margin-top:5px}.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.tag{border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:#d8cadf;font-size:12px}
+.actions{display:flex;gap:10px;padding:0 22px 22px}.btn{flex:1;border:0;border-radius:14px;padding:13px 14px;font-weight:800;cursor:pointer;color:#fff;background:#251a2e}.btn:hover{filter:brightness(1.15)}.like{background:linear-gradient(135deg,#ff4c91,#9b55ff)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.chat{display:flex;flex-direction:column;min-height:0}.chatHead{padding:18px;border-bottom:1px solid var(--line)}.chatHead b{display:block}.chatHead small{color:#8dffbd}
+.messages{flex:1;padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px}.msg{max-width:88%;padding:11px 13px;border-radius:16px;line-height:1.4;font-size:14px}.mira{align-self:flex-start;background:#211728;border:1px solid #382642}.you{align-self:flex-end;background:#7e315b}.composer{padding:12px;border-top:1px solid var(--line);display:flex;gap:8px}.composer input{min-width:0;flex:1;border:1px solid var(--line);background:#0d0911;color:#fff;border-radius:12px;padding:12px}.mic{width:48px;border:0;border-radius:12px;background:#ff5fa2;color:#180b13;font-size:19px;cursor:pointer}.mic.live{background:#ff3030;color:#fff;animation:pulse 1s infinite}.setup{padding:12px 16px;border-top:1px solid var(--line);background:#0d0912}.setup summary{cursor:pointer;color:#d9cce0;font-size:12px}.setupRow{display:flex;gap:7px;margin-top:10px}.setup input{flex:1;min-width:0;background:#08060b;border:1px solid var(--line);color:#fff;border-radius:9px;padding:9px}.setup button{border:1px solid var(--line);background:#20172a;color:#fff;border-radius:9px;padding:8px 10px;cursor:pointer}
+@keyframes pulse{50%{box-shadow:0 0 0 7px #ff303033}}
+@media(max-width:800px){.app{grid-template-columns:1fr}.chat{min-height:430px}.card{min-height:680px}}
+</style>
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand"><div class="brand-orb">M</div><div><b>MIRA</b><span>AI COMPANION</span></div></div>
-    <button class="nav active" id="nav-chat"><span>♡</span> Chat</button>
-    <button class="nav" id="nav-memory"><span>◈</span> Memory</button>
-    <button class="nav" id="nav-settings"><span>⚙</span> Settings</button>
-    <div class="sidebar-bottom"><div class="online"><i></i><span id="status">Connecting…</span></div></div>
-  </aside>
-
-  <main class="main">
-    <header class="topbar">
-      <div><h1>Mira</h1><span class="subtitle">your gothic companion</span></div>
-      <div class="top-actions"><button class="icon-btn" id="clear-chat" title="Clear chat">⌫</button><button class="icon-btn" id="settings-btn" title="Settings">⚙</button></div>
-    </header>
-
-    <section class="workspace">
-      <div class="character-card">
-        <div class="glow"></div>
-        <div id="mira-sprite" class="mira-sprite" aria-label="Mira"></div>
-        <video id="mira-video" class="mira-video hidden" autoplay playsinline></video>
-        <div class="character-info"><div class="name-row"><strong>Mira</strong><span class="heart">♥</span></div><span>Gothic AI • Voice companion</span></div>
-        <div class="speaking-badge" id="speaking-badge"><i></i><span id="video-status">Ready</span></div>
-      </div>
-
-      <section class="chat-panel">
-        <div class="chat-head"><div><h2>Conversation</h2><span>Talk naturally with Mira</span></div><div class="pulse-ring" id="pulse-ring"></div></div>
-        <div class="messages" id="messages">
-          <div class="bubble mira-bubble"><div class="bubble-name">Mira</div><span>Hi, I’m Mira. It’s nice to hear your voice.</span></div>
-        </div>
-        <div class="voice-area">
-          <div id="agent-container"><button id="mira-talk-button" class="talk-button"><span class="mic">●</span><span>Talk to Mira</span></button></div>
-          <div class="voice-hint">Click to start a voice conversation</div>
-        </div>
-      </section>
-    </section>
-
-    <section class="setup hidden" id="setup">
-      <div class="setup-card"><h2>Connect Mira</h2><p>Enter your Deepgram API key to enable voice.</p><input id="deepgram-key" type="password" placeholder="Deepgram API key"><button id="save-key">Connect</button><small>Your key is handled by the local Mira EXE.</small></div>
-    </section>
-  </main>
+<div class="app">
+<section class="card">
+  <div class="top"><div class="logo">MIRA</div><div class="online">● online</div></div>
+  <div class="stage"><div id="sprite" class="sprite"></div><div id="status" class="status">Mira is waiting for you…</div></div>
+  <div class="profile"><div class="name">Mira, 22 🦇</div><div class="bio">Gothic, playful, a little mysterious. Talk to me.</div><div class="tags"><span class="tag">romance</span><span class="tag">night owl</span><span class="tag">music</span><span class="tag">cute</span></div></div>
+  <div class="actions"><button id="heart" class="btn like">♥ Like</button><button id="call" class="btn">🎙 Talk to Mira</button></div>
+</section>
+<section class="chat">
+  <div class="chatHead"><b>Chat with Mira</b><small id="connection">Deepgram ready when you are</small></div>
+  <div id="messages" class="messages"><div class="msg mira">Hey… I was wondering when you'd come talk to me. 💜</div></div>
+  <form id="form" class="composer"><input id="text" autocomplete="off" placeholder="Type something…"><button class="mic" id="mic" type="button" title="Start microphone">🎙</button></form>
+  <details class="setup"><summary>Deepgram API key</summary><div class="setupRow"><input id="key" type="password" placeholder="Paste your Deepgram key"><button id="save" type="button">Save</button></div><small style="color:#8f8299;display:block;margin-top:7px">Stored only in this browser. A browser-only app exposes the key to the client; use a short-lived token/backend for production.</small></details>
+</section>
 </div>
-<script src="/app.js"></script>
+<script>
+const COLS=3, ROWS=2, FRAME_MS=115;
+const sprite=document.getElementById('sprite'), statusEl=document.getElementById('status'), messages=document.getElementById('messages');
+const keyInput=document.getElementById('key'), connection=document.getElementById('connection'), mic=document.getElementById('mic');
+let frame=0, speaking=false, anim=null, ws=null, stream=null, audioCtx=null, processor=null, source=null, keepAlive=null, finalTimer=null, lastTranscript='';
+keyInput.value=localStorage.getItem('mira_dg_key')||'';
+
+function setFrame(n){const c=n%COLS,r=Math.floor(n/COLS);sprite.style.backgroundPosition=(c*50)+'% '+(r*100)+'%';}
+function startMouth(){if(anim)return;speaking=true;let n=0;setFrame(0);anim=setInterval(()=>{n=(n+1)%(COLS*ROWS);setFrame(n)},FRAME_MS)}
+function stopMouth(){speaking=false;if(anim){clearInterval(anim);anim=null}setFrame(0)}
+function addMsg(who,text){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;messages.appendChild(d);messages.scrollTop=messages.scrollHeight}
+function key(){return keyInput.value.trim()}
+document.getElementById('save').onclick=()=>{localStorage.setItem('mira_dg_key',key());connection.textContent=key()?'Deepgram key saved':'Add a Deepgram key'};
+document.getElementById('heart').onclick=()=>{addMsg('mira','Aww… you liked me? That makes me blush. 💕');speak('Aww… you liked me? That makes me blush.');};
+
+const replies=[
+  [/hello|hi|hey/i,'Hey you. I’m Mira. I was hoping you’d say hello. 💜'],
+  [/love|like|cute|pretty|beautiful/i,'You’re making it very hard for me to keep my mysterious act going.'],
+  [/how are you|how r u/i,'I’m good… especially now that you’re here.'],
+  [/name/i,'I’m Mira. But you can call me whatever feels cute.'],
+  [/music|song/i,'I love moody music at night. It makes everything feel a little more romantic.'],
+  [/bye|goodnight/i,'Goodnight, you. Come back when the moon is up. 🌙']
+];
+function replyFor(t){for(const [re,r] of replies)if(re.test(t))return r;return ['Tell me more… I’m listening.','Hmm… I like where this conversation is going.','Really? You have my attention now.','That’s interesting. Keep talking to me.'][Math.floor(Math.random()*4)]}
+
+async function speak(text){
+  if(!key()){connection.textContent='Add your Deepgram key to enable voice';return}
+  startMouth();statusEl.textContent='Mira is talking…';connection.textContent='Mira is speaking';
+  try{
+    const res=await fetch('https://api.deepgram.com/v1/speak?model=aura-2-amalthea-en&encoding=mp3&container=mp3',{method:'POST',headers:{'Authorization':'Token '+key(),'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(!res.ok)throw new Error('TTS '+res.status);
+    const blob=await res.blob(), url=URL.createObjectURL(blob), audio=new Audio(url);
+    audio.onended=()=>{URL.revokeObjectURL(url);stopMouth();statusEl.textContent='Mira is waiting for you…';connection.textContent='Deepgram ready'};
+    audio.onerror=()=>{stopMouth();connection.textContent='Audio playback failed'};
+    await audio.play();
+  }catch(e){stopMouth();connection.textContent='Voice error: '+e.message}
+}
+
+async function sendText(text){
+  text=text.trim();if(!text)return;addMsg('you',text);
+  const r=replyFor(text);setTimeout(()=>{addMsg('mira',r);speak(r)},180);
+}
+document.getElementById('form').onsubmit=e=>{e.preventDefault();sendText(document.getElementById('text').value);document.getElementById('text').value=''};
+
+function downsample(buffer,inputRate,outRate){
+  if(outRate===inputRate)return buffer;
+  const ratio=inputRate/outRate, len=Math.round(buffer.length/ratio), out=new Float32Array(len);
+  let offset=0;
+  for(let i=0;i<len;i++){const next=Math.round((i+1)*ratio),end=Math.min(next,buffer.length);let sum=0,count=0;for(let j=offset;j<end;j++){sum+=buffer[j];count++}out[i]=count?sum/count:0;offset=end}
+  return out;
+}
+function pcm16(f){const b=new ArrayBuffer(f.length*2),v=new DataView(b);for(let i=0;i<f.length;i++){let s=Math.max(-1,Math.min(1,f[i]));v.setInt16(i*2,s<0?s*0x8000:s*0x7fff,true)}return b}
+
+async function startMic(){
+  if(!key()){connection.textContent='Add your Deepgram key first';return}
+  if(ws){stopMic();return}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    audioCtx=new AudioContext();source=audioCtx.createMediaStreamSource(stream);processor=audioCtx.createScriptProcessor(4096,1,1);
+    const url='wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&language=en-US&interim_results=true&punctuate=true&smart_format=true&endpointing=700';
+    ws=new WebSocket(url,['token',key()]);
+    ws.onopen=()=>{connection.textContent='Listening…';mic.classList.add('live');mic.textContent='■';source.connect(processor);processor.connect(audioCtx.destination);keepAlive=setInterval(()=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'KeepAlive'})),8000)};
+    ws.onmessage=e=>{
+      if(typeof e.data!=='string')return;let d;try{d=JSON.parse(e.data)}catch{return}
+      const t=d.channel?.alternatives?.[0]?.transcript||'';if(!t)return;
+      if(d.is_final){lastTranscript=t;clearTimeout(finalTimer);finalTimer=setTimeout(()=>{if(lastTranscript){const x=lastTranscript;lastTranscript='';sendText(x)}},250)}
+    };
+    ws.onerror=()=>{connection.textContent='Deepgram connection error'};
+    ws.onclose=()=>{if(ws){connection.textContent='Microphone stopped';mic.classList.remove('live');mic.textContent='🎙'}};
+    processor.onaudioprocess=e=>{if(!ws||ws.readyState!==1)return;const data=downsample(e.inputBuffer.getChannelData(0),audioCtx.sampleRate,16000);ws.send(pcm16(data))};
+  }catch(e){connection.textContent='Microphone error: '+e.message;stopMic()}
+}
+function stopMic(){
+  if(keepAlive){clearInterval(keepAlive);keepAlive=null}if(finalTimer)clearTimeout(finalTimer);
+  try{processor&&processor.disconnect();source&&source.disconnect()}catch{}
+  processor=null;source=null;if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}
+  if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+  if(ws){const x=ws;ws=null;try{x.send(JSON.stringify({type:'Finalize'}));x.close()}catch{}}
+  mic.classList.remove('live');mic.textContent='🎙';
+}
+function toggleMic(){if(ws)stopMic();else startMic()}
+mic.onclick=toggleMic;
+document.getElementById('call').onclick=toggleMic;
+setFrame(0);
+</script>
 </body>
 </html>
