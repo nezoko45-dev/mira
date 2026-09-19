@@ -102,7 +102,7 @@ function startMouth(){
   if(anim)return;
   speaking=true;
   // Flipbook order: each cropped cell is one complete frame.
-  const flipbook=[0,1,2,3,4,5];
+  const flipbook=[0,3,1,4,2,5];
   let p=0;
   setFrame(flipbook[p]);
   anim=setInterval(()=>{
