@@ -12,7 +12,7 @@
 .card{position:relative;display:flex;flex-direction:column}.top{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line)}
 .logo{font-weight:800;letter-spacing:.08em}.online{font-size:12px;color:#8dffbd}
 .stage{flex:1;display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 55%,#382040 0,#17101f 38%,#0b0810 72%)}
-.book{position:relative;width:min(78%,620px);aspect-ratio:1/1;filter:drop-shadow(0 18px 35px #000b);overflow:hidden}.frame{position:absolute;inset:0;background-image:url("ChatGPT%20Image%20Sep%2018,%202026,%2006_48_03%20PM.png");background-size:300% 200%;background-repeat:no-repeat;background-color:transparent;opacity:0;transition:opacity .06s}.frame.active{opacity:1}
+.book{position:relative;width:min(78%,620px);aspect-ratio:1/1;filter:drop-shadow(0 18px 35px #000b);overflow:hidden}.frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .06s}.frame.active{opacity:1}
 .status{position:absolute;left:20px;bottom:18px;padding:9px 13px;border:1px solid #ffffff18;border-radius:999px;background:#09070dcc;color:#d8cedf;font-size:12px;backdrop-filter:blur(8px)}
 .profile{padding:18px 22px}.name{font-size:28px;font-weight:800}.bio{color:var(--muted);margin-top:5px}.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.tag{border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:#d8cadf;font-size:12px}
 .actions{display:flex;gap:10px;padding:0 22px 22px}.btn{flex:1;border:0;border-radius:14px;padding:13px 14px;font-weight:800;cursor:pointer;color:#fff;background:#251a2e}.btn:hover{filter:brightness(1.15)}.like{background:linear-gradient(135deg,#ff4c91,#9b55ff)}
@@ -48,7 +48,26 @@
 const COLS=3, ROWS=2, FRAME_MS=420, TTS_RATE=24000;
 const book=document.getElementById('book');
 const frames=[];
-for(let i=0;i<COLS*ROWS;i++){const f=document.createElement('div');f.className='frame';const c=i%COLS,r=Math.floor(i/COLS);f.style.backgroundPosition=(c*50)+'% '+(r*100)+'%';book.appendChild(f);frames.push(f)}
+const sourceImage=new Image();
+sourceImage.src='ChatGPT%20Image%20Sep%2018,%202026,%2006_48_03%20PM.png';
+let framesReady=false;
+sourceImage.onload=()=>{
+  const cellW=sourceImage.naturalWidth/COLS, cellH=sourceImage.naturalHeight/ROWS;
+  for(let i=0;i<COLS*ROWS;i++){
+    const canvas=document.createElement('canvas');
+    canvas.className='frame';
+    canvas.width=Math.round(cellW);
+    canvas.height=Math.round(cellH);
+    const ctx=canvas.getContext('2d');
+    const c=i%COLS, r=Math.floor(i/COLS);
+    ctx.drawImage(sourceImage,c*cellW,r*cellH,cellW,cellH,0,0,canvas.width,canvas.height);
+    book.appendChild(canvas);
+    frames.push(canvas);
+  }
+  framesReady=true;
+  setFrame(0);
+};
+sourceImage.onerror=()=>{debug.textContent='Could not load Mira spritesheet'};
 const statusEl=document.getElementById('status');
 const messages=document.getElementById('messages');
 const keyInput=document.getElementById('key');
@@ -68,7 +87,7 @@ async function unlockAudio(){
   if(ttsCtx.state==='suspended') await ttsCtx.resume();
 }
 
-function setFrame(n){frames.forEach((f,i)=>f.classList.toggle('active',i===n));}
+function setFrame(n){if(!framesReady)return;frames.forEach((f,i)=>f.classList.toggle('active',i===n));}
 function startMouth(){
   if(anim)return;
   speaking=true;
@@ -341,7 +360,6 @@ function toggleMic(){if(ws)stopMic();else startMic()}
 mic.onclick=toggleMic;
 document.getElementById('call').onclick=toggleMic;
 
-setFrame(0);
 window.addEventListener('beforeunload',closeTTS);
 </script>
 </body>
