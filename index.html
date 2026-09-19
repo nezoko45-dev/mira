@@ -80,6 +80,7 @@ const debug=document.getElementById('debug');
 const mic=document.getElementById('mic');
 
 let anim=null;
+let speaking=false;
 let agentSocket=null;
 let stream=null, audioCtx=null, processor=null, source=null, keepAlive=null;
 let agentReady=false;
