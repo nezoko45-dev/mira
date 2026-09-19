@@ -7,29 +7,25 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Build React + Tailwind frontend
-        shell: pwsh
-        run: |
-          npm install
-          npm run build
-          if (!(Test-Path dist/index.html)) { throw "React build did not produce dist/index.html" }
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
       - name: Publish self-contained EXE
         shell: pwsh
         run: dotnet publish Mira/Mira.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
-      - name: Package required files
+      - name: Package basic HTML app
         shell: pwsh
         run: |
-          if (!(Test-Path publish/Mira.exe)) { throw "Mira.exe was not produced" }
-          Copy-Item "dist/*" "publish" -Recurse -Force
+          Copy-Item "index.html" "publish/index.html" -Force
+          Copy-Item "app.js" "publish/app.js" -Force
+          Copy-Item "styles.css" "publish/styles.css" -Force
           Copy-Item "luna mouth closed.png" "publish/luna mouth closed.png" -Force
-          if (!(Test-Path "publish/index.html")) { throw "React index.html was not copied" }
-          if (!(Test-Path "publish/luna mouth closed.png")) { throw "luna mouth closed.png was not copied" }
+          Copy-Item "ChatGPT Image Sep 18, 2026, 06_48_03 PM.png" "publish/ChatGPT Image Sep 18, 2026, 06_48_03 PM.png" -Force
+          if (!(Test-Path "publish/Mira.exe")) { throw "Mira.exe was not produced" }
+          if (!(Test-Path "publish/index.html")) { throw "index.html missing" }
+          if (!(Test-Path "publish/app.js")) { throw "app.js missing" }
+          if (!(Test-Path "publish/styles.css")) { throw "styles.css missing" }
+          if (!(Test-Path "publish/ChatGPT Image Sep 18, 2026, 06_48_03 PM.png")) { throw "Mouth spritesheet missing" }
       - name: Zip Windows app
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath Mira-Windows.zip -Force
